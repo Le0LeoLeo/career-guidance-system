@@ -5,15 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>學生職涯輔導系統</title>
   
-  <!-- Bootstrap 5 CSS -->
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Bootstrap 5 CSS (保留用於現有視圖) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   
   <!-- Custom CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 導航列 -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <!-- 導航列 (使用 Tailwind CSS) -->
+  <nav class="bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center">
+          <h1 class="text-white text-xl font-bold">職涯輔導系統</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span class="text-white text-sm hidden md:block" id="nav-user-email"></span>
+          <button 
+            id="nav-logout-btn" 
+            class="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors duration-200 font-medium text-sm"
+            style="display: none;"
+          >
+            登出
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Bootstrap 導航列 (保留用於現有視圖，隱藏) -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary" style="display: none;">
     <div class="container-fluid">
       <a class="navbar-brand" href="#">職涯輔導系統</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -29,6 +53,110 @@
   </nav>
 
   <div class="container mt-4">
+    <!-- ========== Dashboard 視圖 ========== -->
+    <div id="dashboard-view" class="view-container" style="display: none;">
+      <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- 歡迎卡片 -->
+        <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                歡迎回來，<span id="dashboard-name" class="text-blue-600">使用者</span>！
+              </h1>
+              <p class="text-gray-600">這是您的個人儀表板</p>
+            </div>
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-full w-20 h-20 flex items-center justify-center">
+              <span class="text-white text-2xl font-bold" id="dashboard-avatar">
+                U
+              </span>
+            </div>
+          </div>
+          
+          <!-- 用戶信息卡片 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <!-- Email 信息 -->
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-l-4 border-blue-500">
+              <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">電子郵件</h3>
+              </div>
+              <p class="text-lg font-medium text-gray-800 mt-2" id="dashboard-email">-</p>
+            </div>
+            
+            <!-- 學生編號信息 -->
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border-l-4 border-green-500">
+              <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path>
+                </svg>
+                <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">學生編號</h3>
+              </div>
+              <p class="text-lg font-medium text-gray-800 mt-2" id="dashboard-student-id">-</p>
+            </div>
+          </div>
+
+          <!-- 角色信息 -->
+          <div class="mt-6 pt-6 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">角色</h3>
+                <span id="dashboard-role" class="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                  -
+                </span>
+              </div>
+              <div id="dashboard-status-section" style="display: none;">
+                <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">狀態</h3>
+                <span id="dashboard-status" class="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                  -
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快速操作卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer" onclick="navigateToView('studentDecided')" id="nav-resources" style="display: none;">
+            <div class="flex items-center mb-4">
+              <div class="bg-blue-100 rounded-lg p-3">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-800 ml-3">職涯資源</h3>
+            </div>
+            <p class="text-gray-600 text-sm">查看可用的職涯發展資源</p>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer" onclick="navigateToView('studentUndecided')" id="nav-appointments" style="display: none;">
+            <div class="flex items-center mb-4">
+              <div class="bg-green-100 rounded-lg p-3">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-800 ml-3">預約面談</h3>
+            </div>
+            <p class="text-gray-600 text-sm">預約與教師的面談時間</p>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer" onclick="navigateToView('teacher')" id="nav-teacher" style="display: none;">
+            <div class="flex items-center mb-4">
+              <div class="bg-purple-100 rounded-lg p-3">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-800 ml-3">教師管理</h3>
+            </div>
+            <p class="text-gray-600 text-sm">管理資源和預約</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ========== 登入視圖 ========== -->
     <div id="login-view" class="view-container">
       <div class="row justify-content-center">
@@ -39,43 +167,23 @@
             </div>
             <div class="card-body">
               <div id="login-error" class="alert alert-danger" style="display: none;"></div>
-              <form id="login-form">
-                <div class="mb-3">
-                  <label for="login-email" class="form-label">電子郵件</label>
-                  <input type="email" class="form-control" id="login-email" required>
-                </div>
-                <div class="mb-3">
-                  <label for="login-password" class="form-label">密碼</label>
-                  <input type="password" class="form-control" id="login-password" required>
-                </div>
-                <div class="d-grid gap-2">
-                  <button type="submit" class="btn btn-primary">登入</button>
-                  <button type="button" class="btn btn-outline-secondary" id="show-signup-btn">還沒有帳號？註冊</button>
-                </div>
-              </form>
+              <div class="text-center mb-4">
+                <p class="text-muted">請使用 FCT 學校 Google 帳戶登入</p>
+                <p class="small text-muted">僅限 @fct.edu.mo 網域</p>
+              </div>
               
-              <form id="signup-form" style="display: none;">
-                <div class="mb-3">
-                  <label for="signup-email" class="form-label">電子郵件</label>
-                  <input type="email" class="form-control" id="signup-email" required>
-                </div>
-                <div class="mb-3">
-                  <label for="signup-password" class="form-label">密碼</label>
-                  <input type="password" class="form-control" id="signup-password" required minlength="6">
-                </div>
-                <div class="mb-3">
-                  <label for="signup-role" class="form-label">身份</label>
-                  <select class="form-select" id="signup-role" required>
-                    <option value="">請選擇</option>
-                    <option value="student">學生</option>
-                    <option value="teacher">教師</option>
-                  </select>
-                </div>
-                <div class="d-grid gap-2">
-                  <button type="submit" class="btn btn-success">註冊</button>
-                  <button type="button" class="btn btn-outline-secondary" id="show-login-btn">已有帳號？登入</button>
-                </div>
-              </form>
+              <!-- Google 登入按鈕 -->
+              <div class="d-grid">
+                <button type="button" class="btn btn-outline-danger btn-lg" id="google-login-btn">
+                  <svg width="18" height="18" viewBox="0 0 18 18" style="margin-right: 8px; vertical-align: middle;">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+                    <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z"/>
+                  </svg>
+                  使用 Google 登入
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -120,97 +228,140 @@
 
     <!-- ========== 已確定目標學生視圖 ========== -->
     <div id="student-decided-view" class="view-container" style="display: none;">
-      <div class="row">
-        <div class="col-12">
-          <h2 class="mb-4">職涯資源</h2>
-          <div class="mb-3">
-            <label for="resource-category-filter" class="form-label">篩選類別</label>
-            <select class="form-select" id="resource-category-filter">
-              <option value="">全部類別</option>
-            </select>
-          </div>
-          <div id="resources-list" class="row g-3">
-            <!-- 資源卡片將動態插入這裡 -->
-          </div>
-          <div id="resources-empty" class="alert alert-info" style="display: none;">
-            目前尚無資源
-          </div>
+      <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">專屬資源推薦</h1>
+          <p class="text-gray-600">以下是為您精心挑選的職涯發展資源</p>
+        </div>
+        
+        <div class="mb-4">
+          <label for="resource-category-filter" class="block text-sm font-medium text-gray-700 mb-2">篩選類別</label>
+          <select class="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="resource-category-filter">
+            <option value="">全部類別</option>
+          </select>
+        </div>
+        
+        <div id="resources-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- 資源卡片將動態插入這裡 -->
+        </div>
+        
+        <div id="resources-empty" class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center" style="display: none;">
+          <svg class="w-16 h-16 text-blue-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <p class="text-gray-600 text-lg">目前尚無資源</p>
+          <p class="text-gray-500 text-sm mt-2">請聯繫教師添加資源</p>
         </div>
       </div>
     </div>
 
     <!-- ========== 未確定目標學生視圖 ========== -->
     <div id="student-undecided-view" class="view-container" style="display: none;">
-      <div class="row">
-        <!-- 興趣測驗區塊 -->
-        <div class="col-md-6 mb-4">
-          <div class="card">
-            <div class="card-header bg-warning">
-              <h4 class="mb-0">興趣測驗</h4>
-            </div>
-            <div class="card-body">
-              <p>請描述您的興趣與想法，幫助我們為您提供更好的建議。</p>
-              <form id="interests-form">
-                <div class="mb-3">
-                  <label for="interests-text" class="form-label">您的興趣與想法</label>
-                  <textarea class="form-control" id="interests-text" rows="5" placeholder="例如：我對程式設計和數據分析有興趣，但還不確定未來要往哪個方向發展..."></textarea>
-                </div>
-                <button type="submit" class="btn btn-warning">儲存興趣</button>
-              </form>
-              <div id="current-interests" class="mt-3" style="display: none;">
-                <h6>目前記錄的興趣：</h6>
-                <p id="interests-display" class="text-muted"></p>
+      <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- 區塊 A - 興趣探索 -->
+          <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center mb-4">
+              <div class="bg-yellow-100 rounded-lg p-3 mr-3">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
               </div>
+              <h2 class="text-2xl font-bold text-gray-800">興趣探索</h2>
             </div>
+            <p class="text-gray-600 mb-4">請描述您的興趣與想法，幫助我們為您提供更好的建議。</p>
+            <form id="interests-form">
+              <div class="mb-4">
+                <label for="interests-text" class="block text-sm font-medium text-gray-700 mb-2">您的興趣與想法</label>
+                <textarea 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500" 
+                  id="interests-text" 
+                  rows="5" 
+                  placeholder="例如：我對程式設計和數據分析有興趣，但還不確定未來要往哪個方向發展..."
+                ></textarea>
+              </div>
+              <button 
+                type="submit" 
+                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+              >
+                更新興趣
+              </button>
+            </form>
+            <div id="current-interests" class="mt-4 p-4 bg-gray-50 rounded-lg" style="display: none;">
+              <h6 class="text-sm font-semibold text-gray-700 mb-2">目前記錄的興趣：</h6>
+              <p id="interests-display" class="text-gray-600"></p>
+            </div>
+          </div>
+
+          <!-- 區塊 B - 預約諮詢 -->
+          <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center mb-4">
+              <div class="bg-green-100 rounded-lg p-3 mr-3">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <h2 class="text-2xl font-bold text-gray-800">預約諮詢</h2>
+            </div>
+            <p class="text-gray-600 mb-4">預約與導師的面談時間，獲得專業的職涯建議。</p>
+            <form id="appointment-form">
+              <div class="mb-4">
+                <label for="teacher-select" class="block text-sm font-medium text-gray-700 mb-2">選擇導師</label>
+                <select 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  id="teacher-select" 
+                  required
+                >
+                  <option value="">請選擇導師</option>
+                </select>
+              </div>
+              <div class="mb-4">
+                <label for="booking-datetime" class="block text-sm font-medium text-gray-700 mb-2">日期時間</label>
+                <input 
+                  type="datetime-local" 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  id="booking-datetime" 
+                  required
+                >
+              </div>
+              <div class="mb-4">
+                <label for="appointment-notes" class="block text-sm font-medium text-gray-700 mb-2">備註（選填）</label>
+                <textarea 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  id="appointment-notes" 
+                  rows="3"
+                  placeholder="請描述您想要討論的主題..."
+                ></textarea>
+              </div>
+              <button 
+                type="submit" 
+                class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+              >
+                預約導師
+              </button>
+            </form>
           </div>
         </div>
 
-        <!-- 預約面談區塊 -->
-        <div class="col-md-6 mb-4">
-          <div class="card">
-            <div class="card-header bg-success text-white">
-              <h4 class="mb-0">預約面談</h4>
+        <!-- 我的預約狀態列表 -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center mb-4">
+            <div class="bg-blue-100 rounded-lg p-3 mr-3">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
             </div>
-            <div class="card-body">
-              <form id="appointment-form">
-                <div class="mb-3">
-                  <label for="teacher-select" class="form-label">選擇教師</label>
-                  <select class="form-select" id="teacher-select" required>
-                    <option value="">請選擇教師</option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label for="booking-date" class="form-label">日期</label>
-                  <input type="date" class="form-control" id="booking-date" required>
-                </div>
-                <div class="mb-3">
-                  <label for="booking-time" class="form-label">時間</label>
-                  <input type="time" class="form-control" id="booking-time" required>
-                </div>
-                <div class="mb-3">
-                  <label for="appointment-notes" class="form-label">備註（選填）</label>
-                  <textarea class="form-control" id="appointment-notes" rows="3"></textarea>
-                </div>
-                <button type="submit" class="btn btn-success">提交預約</button>
-              </form>
-            </div>
+            <h2 class="text-2xl font-bold text-gray-800">我的預約狀態</h2>
           </div>
-        </div>
-
-        <!-- 我的預約列表 -->
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header bg-secondary text-white">
-              <h4 class="mb-0">我的預約</h4>
-            </div>
-            <div class="card-body">
-              <div id="my-appointments-list">
-                <!-- 預約項目將動態插入這裡 -->
-              </div>
-              <div id="appointments-empty" class="alert alert-info" style="display: none;">
-                目前尚無預約
-              </div>
-            </div>
+          <div id="my-appointments-list" class="space-y-4">
+            <!-- 預約項目將動態插入這裡 -->
+          </div>
+          <div id="appointments-empty" class="text-center py-8" style="display: none;">
+            <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <p class="text-gray-600 text-lg">目前尚無預約</p>
+            <p class="text-gray-500 text-sm mt-2">請使用上方表單預約導師</p>
           </div>
         </div>
       </div>
@@ -276,6 +427,104 @@
                 目前尚無資源
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== AI 智能助手聊天窗口（多對話視窗模式） ========== -->
+  <div id="ai-chatbot-container">
+    <!-- 聊天按鈕（右下角懸浮） -->
+    <button id="ai-chatbot-toggle" class="ai-chatbot-button" title="AI 諮詢">
+      <svg class="ai-chatbot-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+      </svg>
+      <span class="ai-chatbot-badge" id="ai-chatbot-badge" style="display: none;">1</span>
+    </button>
+
+    <!-- 聊天視窗（兩欄式佈局） -->
+    <div id="ai-chatbot-window" class="ai-chatbot-window" style="display: none;">
+      <!-- 左側邊欄：對話列表 -->
+      <div class="ai-chatbot-sidebar">
+        <!-- 新增對話按鈕 -->
+        <button id="ai-chatbot-new-chat" class="ai-chatbot-new-chat-btn" title="新增對話">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          <span>新增對話</span>
+        </button>
+        
+        <!-- 對話列表 -->
+        <div class="ai-chatbot-sessions-list" id="ai-chatbot-sessions-list">
+          <!-- 對話項目將動態插入這裡 -->
+          <div class="ai-chatbot-sessions-empty" id="ai-chatbot-sessions-empty">
+            <p>尚無對話記錄</p>
+            <p class="ai-chatbot-sessions-empty-hint">點擊上方按鈕開始新對話</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側主視窗：當前對話 -->
+      <div class="ai-chatbot-main">
+        <!-- 標題列 -->
+        <div class="ai-chatbot-header">
+          <div class="ai-chatbot-header-content">
+            <div class="ai-chatbot-avatar">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+              </svg>
+            </div>
+            <div class="ai-chatbot-header-text">
+              <h3 class="ai-chatbot-title" id="ai-chatbot-title">AI 生涯導師</h3>
+              <p class="ai-chatbot-subtitle" id="ai-chatbot-subtitle">隨時為您解答職涯問題</p>
+            </div>
+          </div>
+          <button id="ai-chatbot-close" class="ai-chatbot-close-btn" title="關閉">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 訊息顯示區 -->
+        <div class="ai-chatbot-messages" id="ai-chatbot-messages">
+          <!-- 歡迎訊息（新對話時顯示） -->
+          <div class="ai-chatbot-welcome" id="ai-chatbot-welcome">
+            <div class="ai-chatbot-welcome-content">
+              <div class="ai-chatbot-welcome-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+              </div>
+              <h2>歡迎使用 AI 生涯導師</h2>
+              <p>請開始一個新話題，或從左側選擇一個歷史對話</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 輸入區 -->
+        <div class="ai-chatbot-input-area">
+          <div class="ai-chatbot-input-wrapper">
+            <textarea 
+              id="ai-chatbot-input" 
+              class="ai-chatbot-input" 
+              placeholder="輸入您的問題..."
+              rows="1"
+            ></textarea>
+            <button id="ai-chatbot-send" class="ai-chatbot-send-btn" title="發送">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="ai-chatbot-typing" id="ai-chatbot-typing" style="display: none;">
+            <div class="ai-typing-indicator">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <span class="ai-typing-text">AI 正在思考中...</span>
           </div>
         </div>
       </div>

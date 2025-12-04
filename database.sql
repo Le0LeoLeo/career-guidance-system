@@ -38,83 +38,81 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 
--- 5. 建立 RLS 政策
+-- 5. 建立輔助函數：檢查用戶是否為教師（必須在 RLS 策略之前定義）
+CREATE OR REPLACE FUNCTION public.is_teacher(user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = user_id AND role = 'teacher'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- 6. 建立 RLS 政策
 
 -- Profiles: 使用者可以讀取自己的資料，教師可以讀取所有學生資料
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile"
   ON profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Teachers can view all profiles" ON profiles;
 CREATE POLICY "Teachers can view all profiles"
   ON profiles FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'teacher'
-    )
-  );
+  USING (public.is_teacher(auth.uid()));
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (auth.uid() = id);
 
 -- Resources: 所有人都可以讀取，只有教師可以新增/更新/刪除
+DROP POLICY IF EXISTS "Everyone can view resources" ON resources;
 CREATE POLICY "Everyone can view resources"
   ON resources FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Teachers can insert resources" ON resources;
 CREATE POLICY "Teachers can insert resources"
   ON resources FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'teacher'
-    )
-  );
+  WITH CHECK (public.is_teacher(auth.uid()));
 
+DROP POLICY IF EXISTS "Teachers can update resources" ON resources;
 CREATE POLICY "Teachers can update resources"
   ON resources FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'teacher'
-    )
-  );
+  USING (public.is_teacher(auth.uid()));
 
+DROP POLICY IF EXISTS "Teachers can delete resources" ON resources;
 CREATE POLICY "Teachers can delete resources"
   ON resources FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'teacher'
-    )
-  );
+  USING (public.is_teacher(auth.uid()));
 
 -- Appointments: 學生可以讀取自己的預約，教師可以讀取所有預約
+DROP POLICY IF EXISTS "Students can view own appointments" ON appointments;
 CREATE POLICY "Students can view own appointments"
   ON appointments FOR SELECT
   USING (
     student_id = auth.uid() OR
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'teacher'
-    )
+    public.is_teacher(auth.uid())
   );
 
+DROP POLICY IF EXISTS "Students can create appointments" ON appointments;
 CREATE POLICY "Students can create appointments"
   ON appointments FOR INSERT
   WITH CHECK (student_id = auth.uid());
 
+DROP POLICY IF EXISTS "Teachers can update appointments" ON appointments;
 CREATE POLICY "Teachers can update appointments"
   ON appointments FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'teacher'
-    )
-  );
+  USING (public.is_teacher(auth.uid()));
 
--- 6. 建立觸發器自動更新 updated_at
+-- 7. 建立觸發器自動更新 updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -123,21 +121,35 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- 7. 建立觸發器：當新用戶註冊時自動建立 profile
+-- 8. 建立觸發器：當新用戶註冊時自動建立 profile
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  user_role TEXT;
 BEGIN
+  -- 根據郵件地址確定角色：f210004@fct.edu.mo 為老師，其他為學生
+  IF LOWER(NEW.email) = 'f210004@fct.edu.mo' THEN
+    user_role := 'teacher';
+  ELSE
+    user_role := 'student';
+  END IF;
+  
+  -- 使用 SECURITY DEFINER 跳過 RLS 檢查
   INSERT INTO public.profiles (id, email, role)
-  VALUES (NEW.id, NEW.email, 'student');
+  VALUES (NEW.id, NEW.email, user_role)
+  ON CONFLICT (id) DO NOTHING;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW

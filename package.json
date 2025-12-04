@@ -1,0 +1,19 @@
+{
+  "name": "ai-proj",
+  "version": "1.0.0",
+  "description": "AI Project with automatic testing",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:ui": "vitest --ui",
+    "dev": "python -m http.server 8000",
+    "test:auto": "powershell -ExecutionPolicy Bypass -File .\\watch-tests.ps1"
+  },
+  "devDependencies": {
+    "vitest": "^1.2.0",
+    "@vitest/ui": "^1.2.0",
+    "jsdom": "^24.0.0"
+  }
+}
+

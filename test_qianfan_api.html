@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>百度文心 4.5T API 测试页面</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .code-block {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .response-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .test-section {
+      border: 2px solid #e5e7eb;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-success { background: #d1fae5; color: #065f46; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- 标题 -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">百度文心 4.5T API 测试页面</h1>
+      <p class="text-gray-600">测试和演示百度千帆平台 ERNIE-4.5-Turbo-128K API 的使用</p>
+    </div>
+
+    <!-- API 信息卡片 -->
+    <div class="test-section bg-white">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">📋 API 信息</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">模型名称</h3>
+          <p class="text-gray-900 font-mono bg-gray-100 p-2 rounded">ernie-4.5-turbo-128k</p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">API 端点</h3>
+          <p class="text-gray-900 font-mono bg-gray-100 p-2 rounded text-sm break-all">https://qianfan.baidubce.com/v2/chat/completions</p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">认证方式</h3>
+          <p class="text-gray-900">Bearer Token (API Key 或 Access Token)</p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">项目集成</h3>
+          <p class="text-gray-900">通过 Supabase Edge Function 调用</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 测试配置 -->
+    <div class="test-section bg-white">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">⚙️ 测试配置</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Supabase URL</label>
+          <input 
+            type="text" 
+            id="supabase-url" 
+            value="https://naqyczuuariosniudbsr.supabase.co"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+            placeholder="https://your-project.supabase.co"
+          >
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Supabase Anon Key</label>
+          <input 
+            type="password" 
+            id="supabase-key" 
+            value=""
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+            placeholder="输入您的 Supabase Anon Key"
+          >
+          <p class="text-xs text-gray-500 mt-1">用于调用 Edge Function，不会发送到百度 API</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">系统提示词（可选）</label>
+          <textarea 
+            id="system-prompt" 
+            rows="3"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="你是一位专业的职涯辅导顾问..."
+          >你是一位专业的职涯辅导顾问，擅长帮助学生探索职涯方向、制定学习计划、准备升学申请等。请用友善、专业的语气回答学生的问题。</textarea>
+        </div>
+        
+        <!-- API Key 设置说明 -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div class="ml-3 flex-1">
+              <h3 class="text-sm font-semibold text-yellow-800 mb-2">🔑 百度 API Key 设置</h3>
+              <p class="text-sm text-yellow-700 mb-3">
+                API Key 需要存储在 Supabase Secrets 中，而不是在页面上输入。这是为了安全考虑，API Key 不会暴露在前端代码中。
+              </p>
+              <div class="space-y-2">
+                <p class="text-sm font-semibold text-yellow-800">设置方法：</p>
+                <ol class="list-decimal list-inside space-y-1 text-sm text-yellow-700 ml-2">
+                  <li>打开 PowerShell 终端</li>
+                  <li>运行帮助脚本：<code class="bg-yellow-100 px-1.5 py-0.5 rounded text-xs font-mono">.\set-baidu-api-key.ps1</code></li>
+                  <li>或者手动运行：<code class="bg-yellow-100 px-1.5 py-0.5 rounded text-xs font-mono">npx supabase secrets set BAIDU_API_KEY=bce-v3/your_key</code></li>
+                </ol>
+                <div class="mt-3 pt-3 border-t border-yellow-300">
+                  <p class="text-xs text-yellow-600 mb-2">
+                    <strong>注意：</strong>API Key 格式应该是 <code class="bg-yellow-100 px-1 py-0.5 rounded text-xs font-mono">bce-v3/xxx</code>（千帆平台格式）
+                  </p>
+                  <p class="text-xs text-yellow-600">
+                    设置后等待 1-2 分钟让更改生效，然后重新测试 Edge Function。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 交互式测试 -->
+    <div class="test-section bg-white">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">🧪 交互式测试</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">用户消息</label>
+          <textarea 
+            id="user-message" 
+            rows="4"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="输入您想要测试的问题..."
+          >我想了解如何准备申请美国的研究所，需要哪些步骤？</textarea>
+        </div>
+        <div class="flex gap-4">
+          <button 
+            id="test-edge-function-btn"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          >
+            🚀 测试 Edge Function 调用
+          </button>
+          <button 
+            id="generate-request-btn"
+            class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          >
+            📝 生成 API 请求格式
+          </button>
+          <button 
+            id="diagnose-btn"
+            class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          >
+            🔍 诊断连接
+          </button>
+        </div>
+        <div id="test-status" class="hidden">
+          <span id="status-badge" class="status-badge"></span>
+          <span id="status-message" class="ml-2 text-sm"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 测试结果 -->
+    <div class="test-section bg-white" id="test-results-section" style="display: none;">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 测试结果</h2>
+      <div id="test-results" class="response-box"></div>
+    </div>
+
+    <!-- API 请求格式 -->
+    <div class="test-section bg-white" id="request-format-section" style="display: none;">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">📤 API 请求格式</h2>
+      <div class="space-y-4">
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">HTTP 请求</h3>
+          <div id="http-request" class="code-block"></div>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">请求体 (JSON)</h3>
+          <div id="request-body" class="code-block"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 代码示例 -->
+    <div class="test-section bg-white">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">💻 代码示例</h2>
+      <div class="space-y-4">
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">JavaScript (通过 Edge Function)</h3>
+          <div class="code-block" id="js-example">// 通过 Supabase Edge Function 调用
+const { data, error } = await supabase.functions.invoke('ask-ai', {
+  body: {
+    prompt: '您的问题',
+    history: [] // 可选：对话历史
+  }
+});
+
+if (error) {
+  console.error('错误：', error);
+} else {
+  console.log('AI 回应：', data.response);
+}</div>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">Edge Function (Deno/TypeScript)</h3>
+          <div class="code-block" id="edge-function-example">// supabase/functions/ask-ai/index.ts
+const apiUrl = 'https://qianfan.baidubce.com/v2/chat/completions';
+
+const response = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${authToken}` // API Key 或 Access Token
+  },
+  body: JSON.stringify({
+    model: 'ernie-4.5-turbo-128k',
+    messages: [
+      { role: 'user', content: '您的问题' }
+    ],
+    temperature: 0.7,
+    max_tokens: 2000
+  })
+});
+
+const data = await response.json();
+const aiResponse = data.choices[0].message.content;</div>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-700 mb-2">cURL 命令</h3>
+          <div class="code-block" id="curl-example">curl -X POST https://qianfan.baidubce.com/v2/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "ernie-4.5-turbo-128k",
+    "messages": [
+      {"role": "user", "content": "您的问题"}
+    ],
+    "temperature": 0.7,
+    "max_tokens": 2000
+  }'</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 项目集成说明 -->
+    <div class="test-section bg-blue-50 border-blue-200">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">🔗 项目集成说明</h2>
+      <div class="space-y-3 text-gray-700">
+        <p><strong>当前项目架构：</strong></p>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>前端 (HTML/JS) → 调用 Supabase Edge Function</li>
+          <li>Edge Function → 调用百度千帆平台 API</li>
+          <li>API Key 存储在 Supabase Secrets 中</li>
+        </ul>
+        <p class="mt-4"><strong>优势：</strong></p>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>API Key 不会暴露在前端代码中</li>
+          <li>统一的错误处理和日志记录</li>
+          <li>支持 CORS 和认证</li>
+          <li>可以添加速率限制和缓存</li>
+        </ul>
+        <p class="mt-4"><strong>相关文件：</strong></p>
+        <ul class="list-disc list-inside space-y-2 ml-4 font-mono text-sm">
+          <li>supabase/functions/ask-ai/index.ts - Edge Function 实现</li>
+          <li>app.js - 前端调用代码</li>
+          <li>QUICK_FIX_EDGE_FUNCTION.md - 故障排除指南</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    let supabaseClient = null;
+
+    // 安全地获取元素值
+    function getElementValue(id) {
+      const element = document.getElementById(id);
+      if (!element) {
+        console.error(`元素 ${id} 不存在`);
+        return '';
+      }
+      return element.value || '';
+    }
+
+    // 安全地设置元素值
+    function setElementValue(id, value) {
+      const element = document.getElementById(id);
+      if (!element) {
+        console.error(`元素 ${id} 不存在`);
+        return false;
+      }
+      element.value = value;
+      return true;
+    }
+
+    // 安全地添加事件监听器
+    function safeAddEventListener(id, event, handler) {
+      const element = document.getElementById(id);
+      if (!element) {
+        console.error(`元素 ${id} 不存在，无法添加事件监听器`);
+        return false;
+      }
+      element.addEventListener(event, handler);
+      return true;
+    }
+
+    // 初始化 Supabase 客户端
+    function initSupabase() {
+      const url = getElementValue('supabase-url');
+      const key = getElementValue('supabase-key');
+      
+      if (!url || !key) {
+        alert('请填写 Supabase URL 和 Anon Key');
+        return false;
+      }
+
+      try {
+        supabaseClient = window.supabase.createClient(url, key);
+        return true;
+      } catch (error) {
+        alert('初始化 Supabase 失败：' + error.message);
+        return false;
+      }
+    }
+
+    // 测试 Edge Function 调用
+    safeAddEventListener('test-edge-function-btn', 'click', async () => {
+      if (!initSupabase()) return;
+
+      const userMessage = getElementValue('user-message');
+      if (!userMessage.trim()) {
+        alert('请输入用户消息');
+        return;
+      }
+
+      const statusDiv = document.getElementById('test-status');
+      const statusBadge = document.getElementById('status-badge');
+      const statusMessage = document.getElementById('status-message');
+      const resultsSection = document.getElementById('test-results-section');
+      const resultsDiv = document.getElementById('test-results');
+
+      // 显示加载状态
+      statusDiv.classList.remove('hidden');
+      statusBadge.className = 'status-badge status-pending';
+      statusBadge.textContent = '测试中...';
+      statusMessage.textContent = '正在调用 Edge Function...';
+      resultsSection.style.display = 'none';
+
+      try {
+        const startTime = Date.now();
+        
+        // 检查 Supabase 客户端是否已初始化
+        if (!supabaseClient) {
+          throw new Error('Supabase 客户端未初始化，请检查 URL 和 Anon Key');
+        }
+
+        // 检查 Edge Function 是否存在
+        const supabaseUrl = getElementValue('supabase-url');
+        const anonKey = getElementValue('supabase-key');
+        const functionUrl = `${supabaseUrl}/functions/v1/ask-ai`;
+        
+        console.log('正在调用 Edge Function:', functionUrl);
+        console.log('请求体:', { prompt: userMessage, history: [] });
+        
+        let data, error;
+        
+        try {
+          const result = await supabaseClient.functions.invoke('ask-ai', {
+            body: {
+              prompt: userMessage,
+              history: []
+            }
+          });
+          data = result.data;
+          error = result.error;
+        } catch (invokeError) {
+          console.error('调用 Edge Function 时发生异常:', invokeError);
+          error = invokeError;
+        }
+
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        // 如果是 FunctionsHttpError 但 context 为空，尝试直接获取响应
+        if (error && error.name === 'FunctionsHttpError' && (!error.context || Object.keys(error.context).length === 0)) {
+          console.warn('FunctionsHttpError with empty context, attempting to fetch error details directly...');
+          
+          // 尝试直接调用 Edge Function 获取错误详情
+          try {
+            const directResponse = await fetch(functionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${anonKey}`,
+                'apikey': anonKey
+              },
+              body: JSON.stringify({
+                prompt: userMessage,
+                history: []
+              })
+            });
+            
+            const responseText = await directResponse.text();
+            console.log('直接调用响应状态:', directResponse.status);
+            console.log('直接调用响应文本:', responseText);
+            
+            // 如果响应成功，说明问题可能是 Supabase 客户端的问题
+            if (directResponse.ok) {
+              try {
+                const successData = JSON.parse(responseText);
+                // 如果直接调用成功，说明 Supabase 客户端有问题，但我们仍然显示成功的结果
+                console.warn('直接调用成功，但 Supabase 客户端返回错误。这可能是一个客户端问题。');
+                data = successData;
+                error = null; // 清除错误，因为实际上调用成功了
+              } catch (e) {
+                // 解析失败，继续显示错误
+                console.error('解析成功响应失败:', e);
+              }
+            } else {
+              // 响应失败，解析错误信息
+              try {
+                error.serverError = JSON.parse(responseText);
+                console.log('解析后的服务器错误:', error.serverError);
+              } catch (e) {
+                error.serverError = { 
+                  raw: responseText, 
+                  status: directResponse.status, 
+                  statusText: directResponse.statusText,
+                  parseError: e.message
+                };
+              }
+              
+              // 更新错误状态码
+              if (!error.status && directResponse.status) {
+                error.status = directResponse.status;
+              }
+            }
+          } catch (fetchError) {
+            console.error('Failed to fetch error details directly:', fetchError);
+            error.fetchError = fetchError.message;
+          }
+        }
+
+        if (error) {
+          statusBadge.className = 'status-badge status-error';
+          statusBadge.textContent = '失败';
+          
+          // 详细的错误信息
+          let errorMessage = error.message || '未知错误';
+          let errorDetails = '';
+          
+          // 尝试从响应中获取详细错误信息
+          let serverError = null;
+          if (error.context && error.context.body) {
+            try {
+              serverError = typeof error.context.body === 'string' 
+                ? JSON.parse(error.context.body) 
+                : error.context.body;
+            } catch (e) {
+              serverError = { raw: error.context.body };
+            }
+          } else if (error.serverError) {
+            // 使用直接调用获取的错误信息
+            serverError = error.serverError;
+          }
+          
+          // 检查常见错误类型
+          if (error.name === 'FunctionsHttpError') {
+            errorMessage = `Edge Function 返回了错误状态码${error.status ? ` (${error.status})` : ''}`;
+            errorDetails = `
+              <div class="mt-4 space-y-3">
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                  <p class="font-semibold text-yellow-800 mb-2">⚠️ FunctionsHttpError - Edge Function 被调用但返回了错误</p>
+                  <p class="text-sm text-yellow-700">这通常表示 Edge Function 已部署，但执行时出现了错误</p>
+                </div>
+            `;
+            
+            if (error.status === 500) {
+              errorDetails += `
+                <p class="font-semibold mt-3">可能的原因：</p>
+                <ul class="list-disc list-inside space-y-1 ml-4">
+                  <li><strong>环境变量未设置或格式不正确</strong>（BAIDU_API_KEY）</li>
+                  <li>API Key 无效或已过期</li>
+                  <li>Edge Function 代码执行错误</li>
+                  <li>百度 API 调用失败</li>
+                </ul>
+                <p class="mt-3 font-semibold">🔧 排查步骤：</p>
+                <ol class="list-decimal list-inside space-y-2 ml-4">
+                  <li>检查环境变量：<pre class="bg-gray-100 p-2 rounded text-sm mt-1 inline-block">npx supabase secrets list</pre></li>
+                  <li>查看 Edge Function 日志：<pre class="bg-gray-100 p-2 rounded text-sm mt-1 inline-block">npx supabase functions logs ask-ai</pre></li>
+                  <li>确认 API Key 格式正确（应该是 <code>bce-v3/xxx</code> 格式）</li>
+                </ol>
+              `;
+            } else if (error.status === 400) {
+              errorDetails += `
+                <p class="font-semibold mt-3">可能的原因：</p>
+                <ul class="list-disc list-inside space-y-1 ml-4">
+                  <li>请求格式不正确</li>
+                  <li>缺少必需的字段</li>
+                  <li>JSON 解析失败</li>
+                </ul>
+              `;
+            } else if (error.status === 404) {
+              errorDetails += `
+                <p class="font-semibold mt-3">Edge Function 未找到</p>
+                <p>请运行：<pre class="bg-gray-100 p-2 rounded text-sm mt-1 inline-block">npx supabase functions deploy ask-ai</pre></p>
+              `;
+            } else {
+              errorDetails += `
+                <p class="font-semibold mt-3">状态码：${error.status || '未知'}</p>
+                <p>请查看下方服务器返回的详细错误信息</p>
+              `;
+            }
+            
+            errorDetails += `</div>`;
+          } else if (error.name === 'FunctionsFetchError' || (error.message && error.message.includes('Failed to send'))) {
+            errorMessage = '无法连接到 Edge Function (FunctionsFetchError)';
+            errorDetails = `
+              <div class="mt-4 space-y-3">
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                  <p class="font-semibold text-yellow-800 mb-2">⚠️ 这是最常见的错误，通常表示 Edge Function 未部署</p>
+                </div>
+                <p class="font-semibold">可能的原因：</p>
+                <ul class="list-disc list-inside space-y-1 ml-4">
+                  <li><strong>Edge Function 未部署</strong>（最常见）</li>
+                  <li>Supabase URL 或 Anon Key 不正确</li>
+                  <li>网络连接问题</li>
+                  <li>CORS 配置问题</li>
+                </ul>
+                <p class="mt-3 font-semibold">🔧 快速修复步骤：</p>
+                <ol class="list-decimal list-inside space-y-2 ml-4">
+                  <li>
+                    <strong>安装 Supabase CLI（如果未安装）：</strong>
+                    <pre class="bg-gray-100 p-2 rounded text-sm mt-1">npm install -g supabase</pre>
+                  </li>
+                  <li>
+                    <strong>登录 Supabase：</strong>
+                    <pre class="bg-gray-100 p-2 rounded text-sm mt-1">supabase login</pre>
+                  </li>
+                  <li>
+                    <strong>链接到项目：</strong>
+                    <pre class="bg-gray-100 p-2 rounded text-sm mt-1">supabase link --project-ref naqyczuuariosniudbsr</pre>
+                  </li>
+                  <li>
+                    <strong>设置环境变量：</strong>
+                    <pre class="bg-gray-100 p-2 rounded text-sm mt-1">supabase secrets set BAIDU_API_KEY=bce-v3/your_api_key_here</pre>
+                  </li>
+                  <li>
+                    <strong>部署 Edge Function：</strong>
+                    <pre class="bg-gray-100 p-2 rounded text-sm mt-1">supabase functions deploy ask-ai</pre>
+                  </li>
+                  <li>
+                    <strong>验证部署：</strong>
+                    <pre class="bg-gray-100 p-2 rounded text-sm mt-1">supabase functions list</pre>
+                  </li>
+                </ol>
+                <div class="mt-3 bg-blue-50 border border-blue-200 rounded p-3">
+                  <p class="font-semibold text-blue-800 mb-1">📚 详细文档：</p>
+                  <ul class="list-disc list-inside space-y-1 text-sm text-blue-700">
+                    <li><code class="bg-blue-100 px-1 rounded">FIX_FUNCTIONSFETCHERROR.md</code> - 完整修复指南</li>
+                    <li><code class="bg-blue-100 px-1 rounded">EDGE_FUNCTION_ERROR_FIX.md</code> - 错误修复指南</li>
+                    <li><code class="bg-blue-100 px-1 rounded">QUICK_FIX_EDGE_FUNCTION.md</code> - 快速修复指南</li>
+                  </ul>
+                </div>
+              </div>
+            `;
+          } else if (error.status === 404) {
+            errorMessage = 'Edge Function 未找到 (404)';
+            errorDetails = `
+              <div class="mt-4 space-y-2">
+                <p class="font-semibold">Edge Function 可能未部署</p>
+                <p>请运行以下命令部署：</p>
+                <pre class="bg-gray-100 p-2 rounded text-sm">supabase functions deploy ask-ai</pre>
+              </div>
+            `;
+          } else if (error.status === 500) {
+            errorMessage = 'Edge Function 服务器错误 (500)';
+            errorDetails = `
+              <div class="mt-4 space-y-2">
+                <p class="font-semibold">可能的原因：</p>
+                <ul class="list-disc list-inside space-y-1 ml-4">
+                  <li>环境变量未设置（BAIDU_API_KEY）</li>
+                  <li>Edge Function 代码有错误</li>
+                  <li>API Key 无效或格式不正确</li>
+                  <li>百度 API 调用失败</li>
+                </ul>
+                <p>请检查 Supabase 日志：<code class="bg-gray-200 px-1 rounded">supabase functions logs ask-ai</code></p>
+              </div>
+            `;
+          } else if (error.status === 400) {
+            errorMessage = '请求格式错误 (400)';
+            errorDetails = `
+              <div class="mt-4 space-y-2">
+                <p class="font-semibold">可能的原因：</p>
+                <ul class="list-disc list-inside space-y-1 ml-4">
+                  <li>请求体格式不正确</li>
+                  <li>缺少必需的 prompt 字段</li>
+                  <li>JSON 解析失败</li>
+                </ul>
+              </div>
+            `;
+          }
+          
+          // 如果有服务器返回的详细错误信息，显示它
+          if (serverError) {
+            errorDetails += `
+              <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
+                <p class="font-semibold text-yellow-800 mb-2">📋 服务器返回的错误详情：</p>
+                <pre class="bg-white p-3 rounded text-sm overflow-auto">${JSON.stringify(serverError, null, 2)}</pre>
+              </div>
+            `;
+          } else if (error.name === 'FunctionsHttpError') {
+            // 即使没有 serverError，也提供诊断信息
+            errorDetails += `
+              <div class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded">
+                <p class="font-semibold text-orange-800 mb-2">⚠️ 无法获取服务器详细错误信息</p>
+                <p class="text-sm text-orange-700 mb-2">这可能是因为：</p>
+                <ul class="list-disc list-inside space-y-1 ml-4 text-sm text-orange-700">
+                  <li>Edge Function 返回了空响应</li>
+                  <li>响应格式不是 JSON</li>
+                  <li>网络问题导致响应丢失</li>
+                </ul>
+                <p class="mt-3 text-sm text-orange-700">
+                  <strong>建议：</strong>运行 <code class="bg-orange-100 px-1 rounded">npx supabase functions logs ask-ai</code> 查看服务器日志
+                </p>
+              </div>
+            `;
+          }
+          
+          statusMessage.textContent = `错误：${errorMessage}`;
+          
+          resultsSection.style.display = 'block';
+          resultsDiv.innerHTML = `
+            <div class="text-red-600 font-semibold mb-2">❌ 调用失败</div>
+            <div class="mb-4">
+              <strong>错误信息：</strong>
+              <pre class="mt-2 bg-red-50 p-4 rounded text-sm overflow-auto">${JSON.stringify(error, null, 2)}</pre>
+            </div>
+            ${errorDetails}
+            <div class="mt-4">
+              <strong>完整错误对象：</strong>
+              <pre class="mt-2 bg-gray-100 p-3 rounded text-sm overflow-auto">${JSON.stringify(error, null, 2)}</pre>
+            </div>
+          `;
+          
+          // 在控制台输出详细错误
+          console.error('❌ Edge Function 调用失败:', error);
+          console.error('请求 URL:', functionUrl);
+          console.error('错误详情:', error);
+        } else {
+          statusBadge.className = 'status-badge status-success';
+          statusBadge.textContent = '成功';
+          statusMessage.textContent = `响应时间：${duration}ms`;
+
+          resultsSection.style.display = 'block';
+          resultsDiv.innerHTML = `
+            <div class="text-green-600 font-semibold mb-2">✅ 调用成功</div>
+            <div class="mb-4">
+              <strong>AI 回应：</strong>
+              <div class="mt-2 p-4 bg-white rounded border border-gray-200">
+                ${data.response ? data.response.replace(/\n/g, '<br>') : '无回应'}
+              </div>
+            </div>
+            ${data.usage ? `
+              <div class="mb-4">
+                <strong>使用统计：</strong>
+                <pre class="mt-2 bg-gray-100 p-3 rounded text-sm">${JSON.stringify(data.usage, null, 2)}</pre>
+              </div>
+            ` : ''}
+            <div>
+              <strong>完整响应：</strong>
+              <pre class="mt-2 bg-gray-100 p-3 rounded text-sm overflow-auto">${JSON.stringify(data, null, 2)}</pre>
+            </div>
+          `;
+        }
+      } catch (error) {
+        statusBadge.className = 'status-badge status-error';
+        statusBadge.textContent = '异常';
+        
+        let errorMessage = error.message || '未知异常';
+        let errorDetails = '';
+        
+        // 检查常见异常类型
+        if (error.name === 'FunctionsFetchError' || (error.message && error.message.includes('Failed to send'))) {
+          errorMessage = '无法发送请求到 Edge Function (FunctionsFetchError)';
+          errorDetails = `
+            <div class="mt-4 space-y-3">
+              <div class="bg-red-50 border border-red-200 rounded p-3">
+                <p class="font-semibold text-red-800 mb-2">❌ FunctionsFetchError - Edge Function 连接失败</p>
+                <p class="text-sm text-red-700">这通常表示 Edge Function 未部署或配置不正确</p>
+              </div>
+              <p class="font-semibold">🔧 立即修复：</p>
+              <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                <p class="text-sm font-mono mb-2">1. 安装 Supabase CLI（如果未安装）：</p>
+                <pre class="bg-gray-100 p-2 rounded text-sm">npm install -g supabase</pre>
+                <p class="text-sm font-mono mt-3 mb-2">2. 部署 Edge Function：</p>
+                <pre class="bg-gray-100 p-2 rounded text-sm">supabase login
+supabase link --project-ref naqyczuuariosniudbsr
+supabase secrets set BAIDU_API_KEY=bce-v3/your_key
+supabase functions deploy ask-ai</pre>
+              </div>
+              <p class="mt-3 text-sm text-gray-600">📖 查看 <code class="bg-gray-200 px-1 rounded">FIX_FUNCTIONSFETCHERROR.md</code> 获取完整修复指南</p>
+            </div>
+          `;
+        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          errorMessage = '网络请求失败';
+          errorDetails = `
+            <div class="mt-4 space-y-2">
+              <p class="font-semibold">网络请求异常</p>
+              <p>请检查：</p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>网络连接是否正常</li>
+                <li>Supabase URL 是否正确</li>
+                <li>是否有防火墙或代理阻止请求</li>
+              </ul>
+            </div>
+          `;
+        }
+        
+        statusMessage.textContent = `异常：${errorMessage}`;
+        
+        resultsSection.style.display = 'block';
+        resultsDiv.innerHTML = `
+          <div class="text-red-600 font-semibold mb-2">❌ 发生异常</div>
+          <div class="mb-4">
+            <strong>异常信息：</strong>
+            <pre class="mt-2 bg-red-50 p-4 rounded text-sm overflow-auto">${error.stack || error.message}</pre>
+          </div>
+          ${errorDetails}
+          <div class="mt-4">
+            <strong>完整异常对象：</strong>
+            <pre class="mt-2 bg-gray-100 p-3 rounded text-sm overflow-auto">${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}</pre>
+          </div>
+        `;
+        
+        // 在控制台输出详细异常
+        console.error('❌ 发生异常:', error);
+        console.error('异常堆栈:', error.stack);
+      }
+    });
+
+    // 诊断连接
+    safeAddEventListener('diagnose-btn', 'click', async () => {
+      if (!initSupabase()) return;
+
+      const statusDiv = document.getElementById('test-status');
+      const statusBadge = document.getElementById('status-badge');
+      const statusMessage = document.getElementById('status-message');
+      const resultsSection = document.getElementById('test-results-section');
+      const resultsDiv = document.getElementById('test-results');
+
+      statusDiv.classList.remove('hidden');
+      statusBadge.className = 'status-badge status-pending';
+      statusBadge.textContent = '诊断中...';
+      statusMessage.textContent = '正在检查连接...';
+      resultsSection.style.display = 'none';
+
+      const diagnostics = [];
+      const supabaseUrl = getElementValue('supabase-url');
+      const supabaseKey = getElementValue('supabase-key');
+      const functionUrl = `${supabaseUrl}/functions/v1/ask-ai`;
+
+      // 1. 检查 Supabase URL 格式
+      try {
+        const url = new URL(supabaseUrl);
+        diagnostics.push({ check: 'Supabase URL 格式', status: '✅', message: `格式正确: ${url.hostname}` });
+      } catch (e) {
+        diagnostics.push({ check: 'Supabase URL 格式', status: '❌', message: `格式错误: ${e.message}` });
+      }
+
+      // 2. 检查 Anon Key
+      if (supabaseKey && supabaseKey.length > 20) {
+        diagnostics.push({ check: 'Supabase Anon Key', status: '✅', message: '已填写（长度正常）' });
+      } else {
+        diagnostics.push({ check: 'Supabase Anon Key', status: '❌', message: '未填写或格式不正确' });
+      }
+
+      // 3. 检查 Supabase 客户端
+      if (supabaseClient) {
+        diagnostics.push({ check: 'Supabase 客户端', status: '✅', message: '已初始化' });
+      } else {
+        diagnostics.push({ check: 'Supabase 客户端', status: '❌', message: '未初始化' });
+      }
+
+      // 4. 测试 Edge Function 连接
+      try {
+        const { data, error } = await supabaseClient.functions.invoke('ask-ai', {
+          body: { prompt: '诊断测试', history: [] }
+        });
+
+        if (error) {
+          diagnostics.push({ 
+            check: 'Edge Function 连接', 
+            status: '❌', 
+            message: `连接失败: ${error.message || JSON.stringify(error)}`,
+            details: error
+          });
+        } else {
+          diagnostics.push({ 
+            check: 'Edge Function 连接', 
+            status: '✅', 
+            message: '连接成功！Edge Function 正常工作',
+            details: data
+          });
+        }
+      } catch (error) {
+        diagnostics.push({ 
+          check: 'Edge Function 连接', 
+          status: '❌', 
+          message: `连接异常: ${error.message}`,
+          details: error
+        });
+      }
+
+      // 5. 检查网络连接
+      try {
+        const response = await fetch(supabaseUrl, { method: 'HEAD', mode: 'no-cors' });
+        diagnostics.push({ check: '网络连接', status: '✅', message: '可以访问 Supabase 服务器' });
+      } catch (error) {
+        diagnostics.push({ check: '网络连接', status: '⚠️', message: `可能无法访问: ${error.message}` });
+      }
+
+      // 显示诊断结果
+      const allPassed = diagnostics.every(d => d.status === '✅');
+      statusBadge.className = allPassed ? 'status-badge status-success' : 'status-badge status-error';
+      statusBadge.textContent = allPassed ? '诊断完成' : '发现问题';
+      statusMessage.textContent = allPassed ? '所有检查通过' : '发现一些问题，请查看详情';
+
+      resultsSection.style.display = 'block';
+      resultsDiv.innerHTML = `
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-800">诊断结果</h3>
+          <div class="space-y-2">
+            ${diagnostics.map(d => `
+              <div class="flex items-start p-3 rounded border ${d.status === '✅' ? 'bg-green-50 border-green-200' : d.status === '❌' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}">
+                <span class="text-xl mr-3">${d.status}</span>
+                <div class="flex-1">
+                  <div class="font-semibold">${d.check}</div>
+                  <div class="text-sm text-gray-600 mt-1">${d.message}</div>
+                  ${d.details ? `
+                    <details class="mt-2">
+                      <summary class="text-sm text-blue-600 cursor-pointer">查看详情</summary>
+                      <pre class="mt-2 bg-gray-100 p-2 rounded text-xs overflow-auto">${JSON.stringify(d.details, null, 2)}</pre>
+                    </details>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ${!allPassed ? `
+            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+              <h4 class="font-semibold text-blue-800 mb-2">💡 修复建议：</h4>
+              <ul class="list-disc list-inside space-y-1 text-sm text-blue-700">
+                <li>如果 Edge Function 未部署，请运行：<code class="bg-blue-100 px-1 rounded">supabase functions deploy ask-ai</code></li>
+                <li>如果环境变量未设置，请运行：<code class="bg-blue-100 px-1 rounded">supabase secrets set BAIDU_API_KEY=your_key</code></li>
+                <li>查看详细文档：<code class="bg-blue-100 px-1 rounded">QUICK_FIX_EDGE_FUNCTION.md</code></li>
+                <li>检查浏览器 Console 和 Network 标签获取更多信息</li>
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      console.log('诊断结果:', diagnostics);
+    });
+
+    // 生成 API 请求格式
+    safeAddEventListener('generate-request-btn', 'click', () => {
+      const userMessage = getElementValue('user-message');
+      const systemPrompt = getElementValue('system-prompt');
+
+      const messages = [];
+      if (systemPrompt.trim()) {
+        messages.push({ role: 'user', content: systemPrompt });
+      }
+      messages.push({ role: 'user', content: userMessage });
+
+      const requestBody = {
+        model: 'ernie-4.5-turbo-128k',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+        stream: false
+      };
+
+      // 显示请求格式
+      document.getElementById('request-format-section').style.display = 'block';
+      
+      document.getElementById('http-request').textContent = `POST https://qianfan.baidubce.com/v2/chat/completions
+Content-Type: application/json
+Authorization: Bearer YOUR_API_KEY_OR_ACCESS_TOKEN`;
+
+      document.getElementById('request-body').textContent = JSON.stringify(requestBody, null, 2);
+
+      // 更新代码示例
+      document.getElementById('js-example').textContent = `// 通过 Supabase Edge Function 调用
+const { data, error } = await supabase.functions.invoke('ask-ai', {
+  body: {
+    prompt: ${JSON.stringify(userMessage)},
+    history: [] // 可选：对话历史
+  }
+});
+
+if (error) {
+  console.error('错误：', error);
+} else {
+  console.log('AI 回应：', data.response);
+}`;
+
+      document.getElementById('edge-function-example').textContent = `// supabase/functions/ask-ai/index.ts
+const apiUrl = 'https://qianfan.baidubce.com/v2/chat/completions';
+
+const response = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': \`Bearer \${authToken}\` // API Key 或 Access Token
+  },
+  body: JSON.stringify(${JSON.stringify(requestBody, null, 2)})
+});
+
+const data = await response.json();
+const aiResponse = data.choices[0].message.content;`;
+
+      document.getElementById('curl-example').textContent = `curl -X POST https://qianfan.baidubce.com/v2/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -d '${JSON.stringify(requestBody)}'`;
+    });
+
+    // 页面加载时尝试从 app.js 读取配置
+    window.addEventListener('DOMContentLoaded', () => {
+      // 如果 Supabase Key 为空，尝试从 localStorage 读取
+      const savedKey = localStorage.getItem('supabase_anon_key');
+      if (savedKey) {
+        setElementValue('supabase-key', savedKey);
+      }
+    });
+
+    // 保存 Supabase Key（可选）
+    safeAddEventListener('supabase-key', 'change', (e) => {
+      if (e.target.value) {
+        localStorage.setItem('supabase_anon_key', e.target.value);
+      }
+    });
+  </script>
+</body>
+</html>
+
