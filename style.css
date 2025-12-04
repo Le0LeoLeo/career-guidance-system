@@ -1,0 +1,163 @@
+/* 學生職涯輔導系統 - 自訂樣式 */
+
+/* 全域樣式 */
+body {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', Arial, sans-serif;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* 視圖容器 */
+.view-container {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 導航列 */
+.navbar-brand {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+/* 卡片樣式 */
+.card {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+  font-weight: 600;
+}
+
+/* 狀態選擇卡片 */
+.status-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.status-card:hover {
+  border-color: #0d6efd;
+  transform: scale(1.02);
+}
+
+.status-card .btn {
+  margin-top: 1rem;
+}
+
+/* 資源卡片 */
+.resource-card {
+  height: 100%;
+}
+
+/* 預約卡片 */
+.appointment-card {
+  margin-bottom: 1rem;
+}
+
+/* 表單樣式 */
+.form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* 按鈕樣式 */
+.btn {
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+/* 徽章樣式 */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+}
+
+/* 錯誤訊息 */
+.alert {
+  border-radius: 0.5rem;
+}
+
+/* 空狀態 */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+  
+  .card {
+    margin-bottom: 1rem;
+  }
+}
+
+/* 載入動畫 */
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 自訂滾動條（Webkit 瀏覽器） */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+

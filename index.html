@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>學生職涯輔導系統</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 導航列 -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">職涯輔導系統</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="navbar-nav ms-auto">
+          <span class="navbar-text me-3" id="user-email"></span>
+          <button class="btn btn-outline-light btn-sm" id="logout-btn" style="display: none;">登出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <!-- ========== 登入視圖 ========== -->
+    <div id="login-view" class="view-container">
+      <div class="row justify-content-center">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header bg-primary text-white">
+              <h3 class="mb-0">登入 / 註冊</h3>
+            </div>
+            <div class="card-body">
+              <div id="login-error" class="alert alert-danger" style="display: none;"></div>
+              <form id="login-form">
+                <div class="mb-3">
+                  <label for="login-email" class="form-label">電子郵件</label>
+                  <input type="email" class="form-control" id="login-email" required>
+                </div>
+                <div class="mb-3">
+                  <label for="login-password" class="form-label">密碼</label>
+                  <input type="password" class="form-control" id="login-password" required>
+                </div>
+                <div class="d-grid gap-2">
+                  <button type="submit" class="btn btn-primary">登入</button>
+                  <button type="button" class="btn btn-outline-secondary" id="show-signup-btn">還沒有帳號？註冊</button>
+                </div>
+              </form>
+              
+              <form id="signup-form" style="display: none;">
+                <div class="mb-3">
+                  <label for="signup-email" class="form-label">電子郵件</label>
+                  <input type="email" class="form-control" id="signup-email" required>
+                </div>
+                <div class="mb-3">
+                  <label for="signup-password" class="form-label">密碼</label>
+                  <input type="password" class="form-control" id="signup-password" required minlength="6">
+                </div>
+                <div class="mb-3">
+                  <label for="signup-role" class="form-label">身份</label>
+                  <select class="form-select" id="signup-role" required>
+                    <option value="">請選擇</option>
+                    <option value="student">學生</option>
+                    <option value="teacher">教師</option>
+                  </select>
+                </div>
+                <div class="d-grid gap-2">
+                  <button type="submit" class="btn btn-success">註冊</button>
+                  <button type="button" class="btn btn-outline-secondary" id="show-login-btn">已有帳號？登入</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 學生狀態選擇視圖 (第一次登入) ========== -->
+    <div id="student-status-select-view" class="view-container" style="display: none;">
+      <div class="row justify-content-center">
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-header bg-info text-white">
+              <h3 class="mb-0">歡迎！請選擇您的狀態</h3>
+            </div>
+            <div class="card-body">
+              <p class="lead">您是已經確定職涯目標，還是仍在探索中？</p>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="card h-100 status-card" data-status="decided">
+                    <div class="card-body text-center">
+                      <h5 class="card-title">已確定目標</h5>
+                      <p class="card-text">我已經有明確的職涯目標（例如：申請美國研究所、進入特定產業等）</p>
+                      <button class="btn btn-primary">選擇此選項</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card h-100 status-card" data-status="undecided">
+                    <div class="card-body text-center">
+                      <h5 class="card-title">未確定目標</h5>
+                      <p class="card-text">我還在探索職涯方向，需要更多輔導與建議</p>
+                      <button class="btn btn-primary">選擇此選項</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 已確定目標學生視圖 ========== -->
+    <div id="student-decided-view" class="view-container" style="display: none;">
+      <div class="row">
+        <div class="col-12">
+          <h2 class="mb-4">職涯資源</h2>
+          <div class="mb-3">
+            <label for="resource-category-filter" class="form-label">篩選類別</label>
+            <select class="form-select" id="resource-category-filter">
+              <option value="">全部類別</option>
+            </select>
+          </div>
+          <div id="resources-list" class="row g-3">
+            <!-- 資源卡片將動態插入這裡 -->
+          </div>
+          <div id="resources-empty" class="alert alert-info" style="display: none;">
+            目前尚無資源
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 未確定目標學生視圖 ========== -->
+    <div id="student-undecided-view" class="view-container" style="display: none;">
+      <div class="row">
+        <!-- 興趣測驗區塊 -->
+        <div class="col-md-6 mb-4">
+          <div class="card">
+            <div class="card-header bg-warning">
+              <h4 class="mb-0">興趣測驗</h4>
+            </div>
+            <div class="card-body">
+              <p>請描述您的興趣與想法，幫助我們為您提供更好的建議。</p>
+              <form id="interests-form">
+                <div class="mb-3">
+                  <label for="interests-text" class="form-label">您的興趣與想法</label>
+                  <textarea class="form-control" id="interests-text" rows="5" placeholder="例如：我對程式設計和數據分析有興趣，但還不確定未來要往哪個方向發展..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning">儲存興趣</button>
+              </form>
+              <div id="current-interests" class="mt-3" style="display: none;">
+                <h6>目前記錄的興趣：</h6>
+                <p id="interests-display" class="text-muted"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 預約面談區塊 -->
+        <div class="col-md-6 mb-4">
+          <div class="card">
+            <div class="card-header bg-success text-white">
+              <h4 class="mb-0">預約面談</h4>
+            </div>
+            <div class="card-body">
+              <form id="appointment-form">
+                <div class="mb-3">
+                  <label for="teacher-select" class="form-label">選擇教師</label>
+                  <select class="form-select" id="teacher-select" required>
+                    <option value="">請選擇教師</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="booking-date" class="form-label">日期</label>
+                  <input type="date" class="form-control" id="booking-date" required>
+                </div>
+                <div class="mb-3">
+                  <label for="booking-time" class="form-label">時間</label>
+                  <input type="time" class="form-control" id="booking-time" required>
+                </div>
+                <div class="mb-3">
+                  <label for="appointment-notes" class="form-label">備註（選填）</label>
+                  <textarea class="form-control" id="appointment-notes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">提交預約</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 我的預約列表 -->
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header bg-secondary text-white">
+              <h4 class="mb-0">我的預約</h4>
+            </div>
+            <div class="card-body">
+              <div id="my-appointments-list">
+                <!-- 預約項目將動態插入這裡 -->
+              </div>
+              <div id="appointments-empty" class="alert alert-info" style="display: none;">
+                目前尚無預約
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 教師視圖 ========== -->
+    <div id="teacher-view" class="view-container" style="display: none;">
+      <div class="row">
+        <!-- 發布資源區塊 -->
+        <div class="col-md-6 mb-4">
+          <div class="card">
+            <div class="card-header bg-primary text-white">
+              <h4 class="mb-0">發布資源</h4>
+            </div>
+            <div class="card-body">
+              <form id="resource-form">
+                <div class="mb-3">
+                  <label for="resource-title" class="form-label">標題</label>
+                  <input type="text" class="form-control" id="resource-title" required>
+                </div>
+                <div class="mb-3">
+                  <label for="resource-link" class="form-label">網址</label>
+                  <input type="url" class="form-control" id="resource-link" required>
+                </div>
+                <div class="mb-3">
+                  <label for="resource-category" class="form-label">類別</label>
+                  <input type="text" class="form-control" id="resource-category" required placeholder="例如：留學申請、履歷撰寫、面試技巧">
+                </div>
+                <button type="submit" class="btn btn-primary">發布資源</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 所有預約列表 -->
+        <div class="col-md-6 mb-4">
+          <div class="card">
+            <div class="card-header bg-info text-white">
+              <h4 class="mb-0">所有預約</h4>
+            </div>
+            <div class="card-body">
+              <div id="all-appointments-list">
+                <!-- 預約項目將動態插入這裡 -->
+              </div>
+              <div id="all-appointments-empty" class="alert alert-info" style="display: none;">
+                目前尚無預約
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 資源管理 -->
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header bg-secondary text-white">
+              <h4 class="mb-0">資源管理</h4>
+            </div>
+            <div class="card-body">
+              <div id="teacher-resources-list" class="row g-3">
+                <!-- 資源卡片將動態插入這裡 -->
+              </div>
+              <div id="teacher-resources-empty" class="alert alert-info" style="display: none;">
+                目前尚無資源
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Custom JS -->
+  <script src="app.js"></script>
+</body>
+</html>
+

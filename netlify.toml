@@ -1,0 +1,25 @@
+# Netlify 配置文件
+# 這個文件可以幫助 Netlify 正確部署您的網站
+
+[build]
+  # 發布目錄（所有文件都在根目錄）
+  publish = "."
+  # 不需要建置命令（靜態網站）
+  command = ""
+
+# 重定向規則（適用於單頁應用）
+# 所有路由都指向 index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 安全標頭設定（可選，增強安全性）
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
