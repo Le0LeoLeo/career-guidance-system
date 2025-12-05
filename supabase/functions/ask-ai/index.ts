@@ -302,7 +302,7 @@ async function fetchUserData(supabase: any, userId: string): Promise<any> {
       // 查詢用戶檔案（包含目標大學、科系、目標分數）
       supabase
         .from('profiles')
-        .select('target_university_id, target_major_name, target_admission_score')
+        .select('target_university_id, target_major_name, target_admission_score, target_university_name')
         .eq('id', userId)
         .single(),
       
@@ -323,10 +323,60 @@ async function fetchUserData(supabase: any, userId: string): Promise<any> {
         .order('exam_date', { ascending: true })
         .limit(20)
     ])
+    
+    // 獲取大學名稱（優先從 profiles 表，如果沒有則查詢 universities 表）
+    let universityName = null
+    if (profileData.data?.target_university_id) {
+      // 優先使用 profiles 表中的 target_university_name
+      if (profileData.data.target_university_name) {
+        universityName = profileData.data.target_university_name
+        console.log('✅ 從 profiles 表獲取大學名稱：', universityName)
+      } else {
+        // 如果 profiles 表沒有，嘗試從 universities 表查詢
+        try {
+          const { data: uniData, error: uniError } = await supabase
+            .from('universities')
+            .select('name, nameEn')
+            .eq('id', profileData.data.target_university_id)
+            .single()
+          
+          if (!uniError && uniData) {
+            universityName = uniData.name || uniData.nameEn || null
+            console.log('✅ 從 universities 表獲取大學名稱：', universityName)
+          } else {
+            console.log('⚠️ 無法獲取大學名稱，將使用 ID')
+          }
+        } catch (error) {
+          console.warn('查詢大學名稱時發生錯誤：', error)
+        }
+      }
+    }
 
     // 檢查查詢錯誤
     if (profileData.error) {
       console.warn('查詢用戶檔案失敗：', profileData.error.message)
+      console.warn('錯誤代碼：', profileData.error.code)
+      // 如果是字段不存在的錯誤，嘗試不包含 target_university_name 重新查詢
+      if (profileData.error.message?.includes('column') || 
+          profileData.error.message?.includes('field') || 
+          profileData.error.code === 'PGRST116') {
+        console.log('⚠️ target_university_name 字段可能不存在，嘗試重新查詢（不包含該字段）')
+        try {
+          const { data: profileDataRetry, error: retryError } = await supabase
+            .from('profiles')
+            .select('target_university_id, target_major_name, target_admission_score')
+            .eq('id', userId)
+            .single()
+          
+          if (!retryError && profileDataRetry) {
+            console.log('✅ 重新查詢成功（不包含 target_university_name）')
+            profileData.data = profileDataRetry
+            profileData.error = null
+          }
+        } catch (retryErr) {
+          console.warn('重新查詢也失敗：', retryErr)
+        }
+      }
     }
     if (examScoresData.error) {
       console.warn('查詢考試成績失敗：', examScoresData.error.message)
@@ -341,6 +391,12 @@ async function fetchUserData(supabase: any, userId: string): Promise<any> {
 
     console.log('用戶數據查詢結果：')
     console.log('  - 檔案數據：', profile ? '有' : '無')
+    if (profile) {
+      console.log('    - 目標大學ID：', profile.target_university_id || '無')
+      console.log('    - 目標大學名稱：', profile.target_university_name || universityName || '無')
+      console.log('    - 目標科系：', profile.target_major_name || '無')
+      console.log('    - 目標分數：', profile.target_admission_score || '無')
+    }
     console.log('  - 考試成績：', examScores.length, '筆')
     console.log('  - 即將到來的考試：', examSchedules.length, '場')
 
@@ -359,6 +415,7 @@ async function fetchUserData(supabase: any, userId: string): Promise<any> {
 
     const result = {
       profile: profile || null,
+      universityName: universityName || null,  // 添加大學名稱
       examScores: examScores,
       examSchedules: examSchedules,
       averageScore: averageScore,
@@ -396,21 +453,50 @@ function buildMessages(prompt: string, history: Array<{ role: string; content: s
     // 目標信息
     if (userData.profile) {
       const profile = userData.profile
-      if (profile.target_university_id || profile.target_major_name || profile.target_admission_score) {
+      console.log('📋 檢查用戶目標資訊：', {
+        target_university_id: profile.target_university_id,
+        target_university_name: userData.universityName,
+        target_major_name: profile.target_major_name,
+        target_admission_score: profile.target_admission_score
+      })
+      
+      // 檢查是否有任何目標信息
+      const hasTargetInfo = profile.target_university_id || profile.target_major_name || profile.target_admission_score || userData.universityName
+      
+      if (hasTargetInfo) {
         systemPrompt += `\n【用戶目標資訊】\n`
-        if (profile.target_university_id) {
+        // 優先使用大學名稱，如果沒有則使用ID
+        if (userData.universityName) {
+          systemPrompt += `- 目標大學：${userData.universityName}\n`
+          hasData = true
+          console.log('✅ 已添加目標大學名稱到系統提示詞：', userData.universityName)
+        } else if (profile.target_university_id) {
           systemPrompt += `- 目標大學ID：${profile.target_university_id}\n`
           hasData = true
+          console.log('✅ 已添加目標大學ID到系統提示詞：', profile.target_university_id)
         }
         if (profile.target_major_name) {
           systemPrompt += `- 目標科系：${profile.target_major_name}\n`
           hasData = true
+          console.log('✅ 已添加目標科系到系統提示詞：', profile.target_major_name)
         }
         if (profile.target_admission_score) {
           systemPrompt += `- 目標錄取分數：${profile.target_admission_score}分\n`
           hasData = true
+          console.log('✅ 已添加目標分數到系統提示詞：', profile.target_admission_score)
         }
+        // 如果同時有大學和科系，組合顯示
+        if ((userData.universityName || profile.target_university_id) && profile.target_major_name) {
+          const uniDisplay = userData.universityName || `大學ID: ${profile.target_university_id}`
+          systemPrompt += `\n完整目標：${uniDisplay} - ${profile.target_major_name}\n`
+          console.log('✅ 已添加完整目標到系統提示詞：', `${uniDisplay} - ${profile.target_major_name}`)
+        }
+      } else {
+        console.log('⚠️ 用戶檔案存在但沒有目標資訊')
+        console.log('   檔案內容：', JSON.stringify(profile))
       }
+    } else {
+      console.log('⚠️ 沒有用戶檔案數據')
     }
     
     // 考試成績
@@ -445,19 +531,33 @@ function buildMessages(prompt: string, history: Array<{ role: string; content: s
       systemPrompt += '\n【即將到來的考試】目前沒有即將到來的考試\n'
     }
     
-    if (hasData) {
-      systemPrompt += '\n【你必須遵守的規則】\n'
-      systemPrompt += '1. 當用戶詢問「我的理想大學是什麼」、「我的目標是什麼」等問題時，直接使用上述目標資訊回答，不要要求用戶提供。\n'
-      systemPrompt += '2. 當用戶詢問「我的成績如何」、「我的分數如何」等問題時，直接分析上述考試成績記錄，指出強項和弱項科目，並給出改進建議。\n'
-      systemPrompt += '3. 當用戶詢問「我還需要多少分才能達到目標」時，計算目標分數與當前平均分數的差距，並給出具體建議。\n'
-      systemPrompt += '4. 當用戶詢問「我有哪些考試」、「我的考試安排」時，直接列出上述即將到來的考試。\n'
-      systemPrompt += '5. 主動結合用戶的目標、成績和考試安排，提供個性化的學習建議和備考計劃。\n'
-      systemPrompt += '6. 永遠不要說「我沒有你的數據」或「請提供你的數據」，因為你已經有了上述數據。\n'
-      systemPrompt += '7. 如果用戶問的問題涉及上述數據，直接使用數據回答，並主動提供分析和建議。\n'
+    // 即使沒有完整數據，只要有部分數據也要顯示
+    if (!hasData && userData.profile && (userData.profile.target_university_id || userData.profile.target_major_name)) {
+      hasData = true
     }
-  } else {
-    systemPrompt += '\n\n【注意】當前無法獲取用戶的個人數據（成績、目標等）。如果用戶詢問相關問題，請禮貌地說明需要用戶提供相關信息。'
-  }
+    
+    if (hasData) {
+      console.log('✅ 用戶有數據，添加規則到系統提示詞')
+      systemPrompt += '\n【你必須遵守的規則 - 非常重要！】\n'
+      systemPrompt += '1. 當用戶詢問「我的理想大學是什麼」、「我的目標是什麼」、「我的目標大學是什麼」等問題時，你必須直接使用上述【用戶目標資訊】回答，例如：「根據你的目標設定，你的理想大學是 [大學名稱]，目標科系是 [科系名稱]，目標錄取分數是 [分數] 分。」絕對不要說「我沒有你的數據」或「請先設定目標」。\n'
+      systemPrompt += '1.1. 【特別重要】如果【用戶目標資訊】中有任何數據（大學名稱、科系名稱、分數等），你必須立即使用這些數據回答，絕對不能說「我沒有看到你的資料」或「目前我還沒有從你的資料裡看到」。\n'
+      systemPrompt += '1.2. 【關鍵指令】當用戶問「我的理想大學是什麼」時，如果【用戶目標資訊】中有「目標大學」和「目標科系」，你必須直接回答：「根據你的目標設定，你的理想大學是 [目標大學名稱]，目標科系是 [目標科系名稱]。」不要說任何「我沒有看到」或「請先設定」的話。\n'
+      systemPrompt += '2. 當用戶詢問「我的成績如何」、「我的分數如何」等問題時，直接分析上述【用戶考試成績記錄】，指出強項和弱項科目，並給出改進建議。如果沒有成績記錄，才說「目前還沒有考試成績記錄」。\n'
+      systemPrompt += '3. 當用戶詢問「我還需要多少分才能達到目標」時，計算目標分數與當前平均分數的差距，並給出具體建議。\n'
+      systemPrompt += '4. 當用戶詢問「我有哪些考試」、「我的考試安排」時，直接列出上述【即將到來的考試】。如果沒有，才說「目前沒有即將到來的考試」。\n'
+      systemPrompt += '5. 主動結合用戶的目標、成績和考試安排，提供個性化的學習建議和備考計劃。\n'
+      systemPrompt += '6. 【絕對禁止】永遠不要說「我沒有你的數據」、「我無法獲取你的數據」、「請提供你的數據」、「請先設定目標」等話語，因為你已經有了上述完整的用戶數據。\n'
+      systemPrompt += '7. 【必須執行】如果用戶問的問題涉及上述數據，你必須直接使用數據回答，並主動提供分析和建議。例如：用戶問「我的理想大學是什麼」，你應該回答「根據你的目標設定，你的理想大學是 [具體大學名稱] - [具體科系名稱]」。\n'
+      systemPrompt += '8. 如果上述【用戶目標資訊】中有完整目標（大學名稱和科系），當用戶問相關問題時，你必須明確說出大學名稱和科系名稱，不要只說「你已經設定了目標」。\n'
+    }
+    } else {
+      console.log('⚠️ 用戶沒有數據')
+      systemPrompt += '\n\n【注意】當前無法獲取用戶的個人數據（成績、目標等）。如果用戶詢問相關問題，請禮貌地說明需要用戶提供相關信息。'
+    }
+    
+    // 添加最終的系統提示詞確認
+    console.log('📝 最終系統提示詞長度：', systemPrompt.length, '字符')
+    console.log('📝 系統提示詞是否包含目標資訊：', systemPrompt.includes('【用戶目標資訊】'))
   
   if (useWebSearch) {
     systemPrompt += '\n\n重要：請使用網絡搜索功能獲取最新的實時信息，特別是關於大學錄取分數、考試資訊等需要最新數據的問題。搜索時請使用準確的關鍵詞，並從搜索結果中提取準確的數據。'

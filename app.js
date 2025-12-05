@@ -2593,7 +2593,7 @@ async function loadCurrentGoal() {
       targetData = {
         target_university_id: currentProfile.target_university_id,
         target_major_name: currentProfile.target_major_name,
-        target_university_name: null,
+        target_university_name: currentProfile.target_university_name || null,
         target_admission_score: currentProfile.target_admission_score || null
       };
     }
@@ -2604,7 +2604,7 @@ async function loadCurrentGoal() {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('target_admission_score, target_university_id, target_major_name')
+        .select('target_admission_score, target_university_id, target_major_name, target_university_name')
         .eq('id', currentUser.id)
         .single();
       
@@ -2626,6 +2626,7 @@ async function loadCurrentGoal() {
           currentProfile.target_admission_score = profile.target_admission_score;
           if (profile.target_university_id) currentProfile.target_university_id = profile.target_university_id;
           if (profile.target_major_name) currentProfile.target_major_name = profile.target_major_name;
+          if (profile.target_university_name) currentProfile.target_university_name = profile.target_university_name;
         }
       }
     } catch (error) {
@@ -4004,13 +4005,17 @@ async function selectMajorForGoal(university, major) {
     // 更新 Supabase profiles 表中的目標分數
     if (supabase) {
       try {
+        const updateData = { 
+          target_admission_score: targetAdmissionScore,
+          target_university_id: university.id,
+          target_major_name: majorName,
+          // 嘗試保存大學名稱（如果字段存在）
+          target_university_name: university.name || university.nameEn || '未知大學'
+        };
+        
         const { error: updateError } = await supabase
           .from('profiles')
-          .update({ 
-            target_admission_score: targetAdmissionScore,
-            target_university_id: university.id,
-            target_major_name: majorName
-          })
+          .update(updateData)
           .eq('id', currentUser.id);
 
         if (updateError) {
@@ -4035,6 +4040,7 @@ async function selectMajorForGoal(university, major) {
       currentProfile.target_university_id = university.id;
       currentProfile.target_major_name = majorName;
       currentProfile.target_admission_score = targetAdmissionScore;
+      currentProfile.target_university_name = university.name || university.nameEn || '未知大學';
     }
 
     // 關閉模態框

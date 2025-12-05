@@ -1,169 +1,101 @@
-# 🚀 Edge Function 部署指南
+# 部署 Edge Function 指南
 
-## 问题：Edge Function 未部署
+## 方式 1: 通过 Supabase Dashboard 部署（推荐，最简单）
 
-如果遇到 `FunctionsFetchError` 错误，通常是因为 Edge Function 未部署。
+### 步骤：
 
-## 📋 部署步骤
+1. **访问 Supabase Dashboard**
+   - 打开：https://supabase.com/dashboard/project/naqyczuuariosniudbsr/functions
+   - 或访问：https://supabase.com/dashboard → 选择项目 → Edge Functions
 
-### 方法 1：使用 PowerShell 脚本（推荐）
+2. **部署函数**
+   - 找到 `ask-ai` 函数
+   - 点击函数进入详情页
+   - 点击 **"Deploy"** 或 **"Redeploy"** 按钮
 
-在 **PowerShell** 中运行（**不是命令提示符**）：
+3. **检查环境变量**
+   - 在函数详情页，找到 **"Settings"** 或 **"Environment Variables"**
+   - 确保以下环境变量已设置：
+     - `BAIDU_API_KEY` - 百度 API Key（必需）
+     - `BAIDU_SECRET_KEY` - 百度 Secret Key（如果使用 OAuth 方式）
 
-```powershell
-.\deploy-edge-function.ps1
+4. **验证部署**
+   - 部署完成后，检查函数状态是否为 **"Active"**
+   - 可以查看函数日志确认是否有错误
+
+---
+
+## 方式 2: 使用 Supabase CLI 部署
+
+### 安装 Supabase CLI
+
+```bash
+npm install -g supabase
 ```
 
-### 方法 2：手动部署
+### 登录和链接项目
 
-#### 步骤 1：安装 Supabase CLI
-
-**Windows 用户：**
-
-由于 Supabase CLI 不支持通过 npm 全局安装，请使用以下方法之一：
-
-**选项 A：使用 npx（推荐，无需安装）**
-
-直接使用 `npx` 运行命令，无需全局安装：
-
-```powershell
-# 所有命令都使用 npx supabase 而不是 supabase
-npx supabase --version
-```
-
-**选项 B：使用 Scoop 安装**
-
-```powershell
-# 安装 Scoop（如果未安装）
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-irm get.scoop.sh | iex
-
-# 添加 Supabase bucket
-scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-
-# 安装 Supabase CLI
-scoop install supabase
-```
-
-**选项 C：下载二进制文件**
-
-从 [Supabase CLI Releases](https://github.com/supabase/cli/releases) 下载 Windows 版本。
-
-#### 步骤 2：登录 Supabase
-
-在 PowerShell 中运行：
-
-```powershell
-# 使用 npx
-npx supabase login
-
-# 或如果已全局安装
+```bash
+# 1. 登录 Supabase
 supabase login
-```
 
-这会打开浏览器，完成登录后返回终端。
-
-#### 步骤 3：链接到项目
-
-```powershell
-# 使用 npx
-npx supabase link --project-ref naqyczuuariosniudbsr
-
-# 或如果已全局安装
+# 2. 链接到你的项目
 supabase link --project-ref naqyczuuariosniudbsr
-```
 
-#### 步骤 4：设置环境变量（API Key）
-
-```powershell
-# 使用 npx
-npx supabase secrets set BAIDU_API_KEY=bce-v3/your_api_key_here
-
-# 或如果已全局安装
-supabase secrets set BAIDU_API_KEY=bce-v3/your_api_key_here
-```
-
-**重要：** 将 `your_api_key_here` 替换为您的实际百度 API Key。
-
-#### 步骤 5：部署 Edge Function
-
-```powershell
-# 使用 npx
-npx supabase functions deploy ask-ai
-
-# 或如果已全局安装
+# 3. 部署函数
 supabase functions deploy ask-ai
 ```
 
-#### 步骤 6：验证部署
+### 设置环境变量（CLI 方式）
 
-```powershell
-# 使用 npx
-npx supabase functions list
+```bash
+# 设置 BAIDU_API_KEY
+supabase secrets set BAIDU_API_KEY=your_api_key_here
 
-# 或如果已全局安装
-supabase functions list
+# 设置 BAIDU_SECRET_KEY（可选）
+supabase secrets set BAIDU_SECRET_KEY=your_secret_key_here
 ```
 
-应该看到 `ask-ai` 函数在列表中。
+---
 
-## ✅ 验证部署成功
+## 验证部署是否成功
 
-部署成功后：
+部署完成后，运行测试脚本：
 
-1. 打开测试页面：`http://localhost:8000/test_qianfan_api.html`
-2. 填写 Supabase URL：`https://naqyczuuariosniudbsr.supabase.co`
-3. 填写 Supabase Anon Key（在 Supabase Dashboard → Settings → API 中获取）
-4. 点击 "🔍 诊断连接" 按钮
-5. 如果诊断通过，点击 "🚀 测试 Edge Function 调用"
+```bash
+node test-ai-functionality.js
+```
 
-## 🔧 故障排除
+或者直接在浏览器中测试：
+1. 打开应用
+2. 登录账户
+3. 设定目标大学和科系
+4. 问 AI："我的理想大学是什么？"
+5. 检查 AI 是否能够正确回答你的目标大学和科系
 
-### 问题 1：登录失败
+---
 
-如果 `supabase login` 无法打开浏览器，可以手动获取 token：
+## 常见问题
 
-1. 访问：https://supabase.com/dashboard/account/tokens
-2. 创建新的 access token
-3. 设置环境变量：
-   ```powershell
-   $env:SUPABASE_ACCESS_TOKEN="your_token_here"
-   ```
+### 1. 函数返回 404 错误
+- 检查函数是否已成功部署
+- 确认函数名称为 `ask-ai`（区分大小写）
 
-### 问题 2：链接项目失败
+### 2. 函数返回 500 错误
+- 检查环境变量是否已正确设置
+- 查看函数日志中的错误信息
+- 确认百度 API Key 格式正确
 
-确保项目 ID 正确：`naqyczuuariosniudbsr`
+### 3. AI 无法读取目标大学信息
+- 确认前端代码已更新（`app.js`）
+- 确认数据库中 `target_university_name` 字段有值
+- 运行 `node fix-database-field.js` 检查数据库
 
-如果项目 ID 不同，请在 Supabase Dashboard 中查看：
-- 进入项目设置
-- 查看 "Reference ID"
+---
 
-### 问题 3：部署失败
+## 下一步
 
-检查：
-1. Edge Function 代码是否存在：`supabase/functions/ask-ai/index.ts`
-2. 环境变量是否设置：`supabase secrets list`
-3. 查看详细错误：`supabase functions deploy ask-ai --debug`
-
-### 问题 4：仍然出现 FunctionsFetchError
-
-1. **确认部署成功**：运行 `supabase functions list` 确认 `ask-ai` 在列表中
-2. **检查 Supabase URL**：确保使用正确的 URL（格式：`https://xxx.supabase.co`）
-3. **检查 Anon Key**：确保使用正确的 Anon Key（不是 Service Role Key）
-4. **等待几分钟**：部署后可能需要几分钟才能生效
-5. **清除浏览器缓存**：刷新页面或清除缓存
-
-## 📚 相关文档
-
-- `FIX_FUNCTIONSFETCHERROR.md` - 完整修复指南
-- `EDGE_FUNCTION_ERROR_FIX.md` - 错误修复指南
-- `deploy-edge-function.ps1` - 自动部署脚本
-
-## 🆘 需要帮助？
-
-如果仍然遇到问题：
-
-1. 查看 Supabase 日志：`supabase functions logs ask-ai`
-2. 检查浏览器 Console 获取详细错误信息
-3. 查看 `FIX_FUNCTIONSFETCHERROR.md` 获取更多故障排除步骤
-
+部署完成后，请：
+1. ✅ 运行测试脚本验证功能
+2. ✅ 在应用中测试 AI 聊天功能
+3. ✅ 确认目标大学信息能正确保存和读取

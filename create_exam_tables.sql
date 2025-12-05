@@ -14,6 +14,7 @@ $$ LANGUAGE plpgsql;
 ALTER TABLE profiles 
 ADD COLUMN IF NOT EXISTS target_university_id TEXT,
 ADD COLUMN IF NOT EXISTS target_major_name TEXT,
+ADD COLUMN IF NOT EXISTS target_university_name TEXT,
 ADD COLUMN IF NOT EXISTS target_admission_score NUMERIC;
 
 -- 3. 建立 exam_schedules 表格 (儲存考程表)
