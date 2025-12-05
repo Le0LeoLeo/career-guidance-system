@@ -171,3 +171,4 @@ try {
     Write-Host "監視器已停止" -ForegroundColor Yellow
 }
 
+

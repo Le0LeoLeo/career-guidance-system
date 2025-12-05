@@ -45,9 +45,23 @@
 
 ### 4. 執行應用程式
 
+#### 本地開發
+
 由於使用純 HTML/CSS/JS，您可以直接：
 - 使用任何本地伺服器（如 VS Code 的 Live Server）
-- 或直接在瀏覽器中開啟 `index.html`（某些功能可能需要本地伺服器）
+- 或使用 Python 啟動 HTTP 服務器：`python -m http.server 8000`
+- 然後訪問：`http://localhost:8000`
+
+#### 部署到 Netlify（生產環境）
+
+1. 將代碼推送到 GitHub
+2. 在 [Netlify](https://www.netlify.com) 連接您的 GitHub 倉庫
+3. Netlify 會自動部署您的網站
+4. 訪問 Netlify 提供的 URL（例如：`https://your-site.netlify.app`）
+
+**重要**：部署到 Netlify 後，直接訪問 Netlify 的 URL，**不需要使用 localhost**！
+
+詳見：[本地開發 vs 生產環境說明](./LOCAL_VS_PRODUCTION.md)
 
 ## 檔案結構
 
@@ -118,6 +132,7 @@ AI_proj/
 1. **Supabase 設定**: 請確保已正確設定 RLS 政策
 2. **認證**: 系統使用 Supabase Auth，首次註冊後可能需要驗證電子郵件（取決於 Supabase 設定）
 3. **時區**: 預約時間使用本地時區，儲存時會轉換為 UTC
+4. **重定向 URL 錯誤**: 如果遇到 `localhost:3000` 連接錯誤，請參考 [修復重定向 URL 指南](./FIX_REDIRECT_URL.md)
 
 ## 未來擴充建議
 

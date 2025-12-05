@@ -167,12 +167,27 @@ try {
 }
 
 Write-Host ""
-Write-Host "Done! You can now test the Edge Function on the test page" -ForegroundColor Green
+Write-Host "Done! Edge Function deployed successfully!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "1. Open test page: http://localhost:8000/test_qianfan_api.html" -ForegroundColor White
-Write-Host "2. Fill in Supabase URL and Anon Key" -ForegroundColor White
-Write-Host "3. Click 'Diagnose Connection' button to verify" -ForegroundColor White
-Write-Host "4. Click 'Test Edge Function Call' to test functionality" -ForegroundColor White
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "本地開發測試 (Local Development)" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "如果您想在本地測試，請執行以下步驟：" -ForegroundColor White
+Write-Host "1. 啟動本地服務器: python -m http.server 8000" -ForegroundColor White
+Write-Host "2. 打開測試頁面: http://localhost:8000/test_qianfan_api.html" -ForegroundColor White
+Write-Host "3. 填寫 Supabase URL 和 Anon Key" -ForegroundColor White
+Write-Host "4. 點擊 'Diagnose Connection' 按鈕驗證" -ForegroundColor White
+Write-Host "5. 點擊 'Test Edge Function Call' 測試功能" -ForegroundColor White
 Write-Host ""
-Write-Host "If test fails, wait 1-2 minutes for deployment to take effect" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "生產環境 (Netlify 部署)" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "部署到 Netlify 後，請直接訪問您的 Netlify URL：" -ForegroundColor White
+Write-Host "- 例如: https://your-site.netlify.app" -ForegroundColor Green
+Write-Host "- 不需要使用 localhost！" -ForegroundColor Green
+Write-Host ""
+Write-Host "您的代碼已經正確配置 Supabase URL：" -ForegroundColor White
+Write-Host "- Supabase URL: https://naqyczuuariosniudbsr.supabase.co" -ForegroundColor Cyan
+Write-Host "- 這個 URL 在本地和生產環境都可以使用" -ForegroundColor White
+Write-Host ""
+Write-Host "如果測試失敗，請等待 1-2 分鐘讓部署生效" -ForegroundColor Yellow

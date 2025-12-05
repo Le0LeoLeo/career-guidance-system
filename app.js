@@ -10,18 +10,68 @@ let supabase;
 let currentUser = null;
 let currentProfile = null;
 
-// ========== DOM 元素 ==========
-const views = {
-  login: document.getElementById('login-view'),
-  dashboard: document.getElementById('dashboard-view'),
-  statusSelect: document.getElementById('student-status-select-view'),
-  studentDecided: document.getElementById('student-decided-view'),
-  studentUndecided: document.getElementById('student-undecided-view'),
-  teacher: document.getElementById('teacher-view')
+// ========== Firebase 初始化 ==========
+// Firebase 配置（請填入您的 Firebase 配置）
+const firebaseConfig = {
+  apiKey: "AIzaSyA6QVAAIBGpnt8QBAScj3gMQmnQijqX_vk",
+  authDomain: "cpaapp-8c4d6.firebaseapp.com",
+  projectId: "cpaapp-8c4d6",
+  storageBucket: "cpaapp-8c4d6.firebasestorage.app",
+  messagingSenderId: "182638554959",
+  appId: "1:182638554959:web:3e5e126b379c6c68c1df3a",
+  measurementId: "G-ME38DET581"
 };
+
+// Firebase 和 Firestore 實例（將在初始化後設定）
+let firebaseApp = null;
+let db = null;
+
+// 初始化 Firebase
+function initFirebase() {
+  try {
+    // 檢查 Firebase 是否已載入
+    if (typeof firebase === 'undefined') {
+      console.error('Firebase SDK 尚未載入');
+      return false;
+    }
+    
+    // 初始化 Firebase App
+    firebaseApp = firebase.initializeApp(firebaseConfig);
+    
+    // 初始化 Firestore
+    db = firebase.firestore();
+    
+    console.log('✅ Firebase 初始化成功');
+    return true;
+  } catch (error) {
+    console.error('❌ Firebase 初始化失敗：', error);
+    return false;
+  }
+}
+
+// ========== DOM 元素 ==========
+let views = {};
+
+// 初始化 views 對象（在 DOM 加載後）
+function initViews() {
+  views = {
+    login: document.getElementById('login-view'),
+    dashboard: document.getElementById('dashboard-view'),
+    statusSelect: document.getElementById('student-status-select-view'),
+    studentDecided: document.getElementById('student-decided-view'),
+    studentUndecided: document.getElementById('student-undecided-view'),
+    teacher: document.getElementById('teacher-view'),
+    'university-view': document.getElementById('university-view')
+  };
+}
 
 // ========== 頁面切換函式 ==========
 function showView(viewId) {
+  // 確保 views 已初始化
+  if (Object.keys(views).length === 0) {
+    initViews();
+  }
+  
   // 隱藏所有視圖
   Object.values(views).forEach(view => {
     if (view) view.style.display = 'none';
@@ -30,11 +80,16 @@ function showView(viewId) {
   // 顯示指定視圖
   if (views[viewId]) {
     views[viewId].style.display = 'block';
+  } else {
+    console.warn(`視圖 "${viewId}" 不存在`);
   }
 }
 
 // ========== 初始化 ==========
 document.addEventListener('DOMContentLoaded', async () => {
+  // 初始化 views 對象
+  initViews();
+  
   // 先設定事件監聽器（不依賴 Supabase）
   setupEventListeners();
   
@@ -55,6 +110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 初始化 AI 聊天功能
   initAIChatbot();
+  
+  // 初始化 Firebase
+  initFirebase();
+  
+  // 設定大學查詢相關事件監聽器
+  setupUniversitySearchListeners();
   
   // 檢查是否已登入
   try {
@@ -124,6 +185,37 @@ function setupEventListeners() {
   const resourceForm = document.getElementById('resource-form');
   if (resourceForm) {
     resourceForm.addEventListener('submit', handleResourceSubmit);
+  }
+}
+
+// ========== 大學查詢相關事件監聽器 ==========
+function setupUniversitySearchListeners() {
+  // 搜尋按鈕
+  const searchBtn = document.getElementById('uni-search-btn');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', handleUniversitySearch);
+  }
+  
+  // 搜尋框 Enter 鍵
+  const searchInput = document.getElementById('uni-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleUniversitySearch();
+      }
+    });
+  }
+  
+  // 篩選器變更
+  const locationFilter = document.getElementById('uni-location-filter');
+  const typeFilter = document.getElementById('uni-type-filter');
+  
+  if (locationFilter) {
+    locationFilter.addEventListener('change', handleUniversitySearch);
+  }
+  
+  if (typeFilter) {
+    typeFilter.addEventListener('change', handleUniversitySearch);
   }
 }
 
@@ -1895,9 +1987,381 @@ function showErrorMessage(message) {
   }
 }
 
+// ========== 大學查詢功能 ==========
+
+// 檢查 Firestore 數據結構（用於調試）
+async function checkFirestoreStructure() {
+  if (!db) {
+    console.error('Firestore 尚未初始化');
+    return;
+  }
+  
+  try {
+    console.log('🔍 正在檢查 Firestore 數據結構...');
+    
+    // 讀取第一筆資料來查看結構
+    const snapshot = await db.collection('universities')
+      .limit(1)
+      .get();
+    
+    if (snapshot.empty) {
+      console.warn('⚠️ universities 集合是空的，請先添加一些數據');
+      return;
+    }
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      console.log('📄 文檔 ID:', doc.id);
+      console.log('📋 數據結構:', data);
+      console.log('🔑 所有欄位:', Object.keys(data));
+      console.log('📊 詳細欄位資訊:');
+      
+      Object.keys(data).forEach(key => {
+        const value = data[key];
+        console.log(`  - ${key}: ${typeof value} = ${JSON.stringify(value)}`);
+      });
+    });
+    
+    // 讀取所有資料的欄位統計
+    const allSnapshot = await db.collection('universities')
+      .limit(10)
+      .get();
+    
+    const allFields = new Set();
+    allSnapshot.forEach(doc => {
+      Object.keys(doc.data()).forEach(key => allFields.add(key));
+    });
+    
+    console.log('📚 所有可能的欄位:', Array.from(allFields));
+    
+  } catch (error) {
+    console.error('❌ 檢查數據結構失敗：', error);
+    console.error('錯誤詳情:', error.message);
+  }
+}
+
+// 去重大學資料（基於大學名稱）
+function deduplicateUniversities(universities) {
+  const uniqueUniversities = [];
+  const seenNames = new Set();
+  
+  universities.forEach(uni => {
+    // 使用標準化的名稱作為去重依據
+    const name = (uni.name || uni.nameEn || '').trim().toLowerCase();
+    if (name && !seenNames.has(name)) {
+      seenNames.add(name);
+      uniqueUniversities.push(uni);
+    } else if (!name) {
+      // 如果沒有名稱，也加入（可能是數據不完整）
+      uniqueUniversities.push(uni);
+    }
+  });
+  
+  return uniqueUniversities;
+}
+
+// 載入所有大學（初始載入時）
+async function loadUniversities() {
+  if (!db) {
+    console.error('Firestore 尚未初始化');
+    return;
+  }
+  
+  try {
+    showLoading(true);
+    
+    // 先檢查數據結構（僅在開發時）
+    if (console && console.log) {
+      await checkFirestoreStructure();
+    }
+    
+    // 從 Firestore 讀取所有大學資料
+    const snapshot = await db.collection('universities').get();
+    
+    const universities = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      universities.push({
+        id: doc.id,
+        ...data
+      });
+    });
+    
+    // 去重：基於大學名稱
+    const uniqueUniversities = deduplicateUniversities(universities);
+    
+    console.log(`✅ 成功載入 ${universities.length} 筆大學資料，去重後 ${uniqueUniversities.length} 筆`);
+    displayUniversities(uniqueUniversities);
+    showLoading(false);
+  } catch (error) {
+    console.error('載入大學資料失敗：', error);
+    console.error('錯誤詳情:', error.message);
+    showErrorMessage('載入大學資料失敗，請稍後再試');
+    showLoading(false);
+  }
+}
+
+// 搜尋大學
+async function handleUniversitySearch() {
+  if (!db) {
+    console.error('Firestore 尚未初始化');
+    showErrorMessage('Firebase 尚未初始化，請重新整理頁面');
+    return;
+  }
+  
+  const keyword = document.getElementById('uni-search-input')?.value.trim() || '';
+  const location = document.getElementById('uni-location-filter')?.value || '';
+  const type = document.getElementById('uni-type-filter')?.value || '';
+  
+  try {
+    showLoading(true);
+    
+    let query = db.collection('universities');
+    
+    // 應用篩選器
+    // 注意：由於 Firestore 的 where 查詢限制，我們先獲取所有數據，然後在前端篩選
+    // 如果數據量很大，建議在 Firestore 中建立索引或使用更複雜的查詢策略
+    
+    // 先取得所有資料
+    const snapshot = await query.get();
+    
+    let universities = [];
+    snapshot.forEach(doc => {
+      universities.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    // 去重：基於大學名稱
+    universities = deduplicateUniversities(universities);
+    
+    // 應用篩選器（在前端進行）
+    if (location) {
+      const lowerLocation = location.toLowerCase();
+      universities = universities.filter(uni => {
+        const city = (uni.city || '').toLowerCase();
+        const district = (uni.district || '').toLowerCase();
+        const address = (uni.address || '').toLowerCase();
+        return city.includes(lowerLocation) || 
+               district.includes(lowerLocation) ||
+               address.includes(lowerLocation);
+      });
+    }
+    
+    if (type) {
+      universities = universities.filter(uni => uni.type === type);
+    }
+    
+    // 如果有關鍵字，在前端進行模糊搜尋
+    if (keyword) {
+      const lowerKeyword = keyword.toLowerCase();
+      universities = universities.filter(uni => {
+        const name = (uni.name || '').toLowerCase();
+        const nameEn = (uni.nameEn || '').toLowerCase();
+        const city = (uni.city || '').toLowerCase();
+        const address = (uni.address || '').toLowerCase();
+        const district = (uni.district || '').toLowerCase();
+        
+        // 檢查學科（metadata.disciplines）
+        const disciplines = (uni.metadata?.disciplines || []).join(' ').toLowerCase();
+        
+        return name.includes(lowerKeyword) || 
+               nameEn.includes(lowerKeyword) ||
+               city.includes(lowerKeyword) || 
+               address.includes(lowerKeyword) ||
+               district.includes(lowerKeyword) ||
+               disciplines.includes(lowerKeyword);
+      });
+    }
+    
+    displayUniversities(universities);
+    showLoading(false);
+  } catch (error) {
+    console.error('搜尋大學失敗：', error);
+    showErrorMessage('搜尋失敗，請稍後再試');
+    showLoading(false);
+  }
+}
+
+// 顯示大學列表
+function displayUniversities(universities) {
+  const resultsContainer = document.getElementById('uni-results');
+  const emptyState = document.getElementById('uni-empty');
+  
+  if (!resultsContainer || !emptyState) {
+    console.error('找不到必要的 DOM 元素');
+    return;
+  }
+  
+  // 清空結果
+  resultsContainer.innerHTML = '';
+  
+  if (universities.length === 0) {
+    resultsContainer.style.display = 'none';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  resultsContainer.style.display = 'grid';
+  emptyState.style.display = 'none';
+  
+  // 渲染大學卡片
+  universities.forEach(uni => {
+    const card = createUniversityCard(uni);
+    resultsContainer.appendChild(card);
+  });
+}
+
+// 建立大學卡片
+function createUniversityCard(uni) {
+  const card = document.createElement('div');
+  card.className = 'university-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden';
+  
+  // 大學資訊（根據實際 Firestore 數據結構）
+  const name = uni.name || '未知大學';
+  const nameEn = uni.nameEn || '';
+  const city = uni.city || '';
+  const district = uni.district || '';
+  const address = uni.address || '';
+  const location = city || district || address || '未知地區';
+  const type = uni.type || ''; // "PUBLIC" 或 "PRIVATE"
+  const typeDisplay = type === 'PUBLIC' ? '公立' : type === 'PRIVATE' ? '私立' : type;
+  const website = uni.website || '';
+  const founded = uni.founded || null;
+  const ranking = uni.ranking || null;
+  const contact = uni.contact || null;
+  const tuition = uni.tuition || null;
+  const disciplines = uni.metadata?.disciplines || [];
+  const description = uni.description || '';
+  
+  // 格式化排名資訊
+  let rankingText = '';
+  if (ranking) {
+    const rankings = [];
+    if (ranking.domestic) rankings.push(`國內: ${ranking.domestic}`);
+    if (ranking.qs) rankings.push(`QS: ${ranking.qs}`);
+    if (ranking.timesHigherEd) rankings.push(`THE: ${ranking.timesHigherEd}`);
+    rankingText = rankings.join(' | ');
+  }
+  
+  card.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-gray-800 mb-1">${escapeHtml(name)}</h3>
+          ${nameEn ? `<p class="text-sm text-gray-500 mb-2">${escapeHtml(nameEn)}</p>` : ''}
+          <div class="flex items-center gap-2 text-sm text-gray-600 mb-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span>${escapeHtml(location)}</span>
+            ${founded ? `<span class="text-gray-400">• 成立於 ${founded}</span>` : ''}
+          </div>
+        </div>
+        ${type ? `
+          <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full whitespace-nowrap">
+            ${escapeHtml(typeDisplay)}
+          </span>
+        ` : ''}
+      </div>
+      
+      ${rankingText ? `
+        <div class="mb-3">
+          <span class="text-sm text-gray-600">排名：</span>
+          <span class="text-sm font-semibold text-gray-800">${escapeHtml(rankingText)}</span>
+        </div>
+      ` : ''}
+      
+      ${contact ? `
+        <div class="mb-3 text-sm text-gray-600">
+          ${contact.email ? `<div class="mb-1">📧 ${escapeHtml(contact.email)}</div>` : ''}
+          ${contact.phone ? `<div>📞 ${escapeHtml(contact.phone)}</div>` : ''}
+        </div>
+      ` : ''}
+      
+      ${tuition ? `
+        <div class="mb-3 text-sm">
+          <div class="text-gray-600 mb-1">💰 學費：</div>
+          ${tuition.undergraduate ? `
+            <div class="text-gray-700">大學部：${tuition.undergraduate.perYear} ${tuition.undergraduate.currency}/年</div>
+          ` : ''}
+          ${tuition.graduate ? `
+            <div class="text-gray-700">研究所：${tuition.graduate.perYear} ${tuition.graduate.currency}/年</div>
+          ` : ''}
+        </div>
+      ` : ''}
+      
+      ${disciplines.length > 0 ? `
+        <div class="mb-3">
+          <div class="text-sm text-gray-600 mb-2">🏫 主要學科：</div>
+          <div class="flex flex-wrap gap-1">
+            ${disciplines.slice(0, 5).map(d => `
+              <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">${escapeHtml(d)}</span>
+            `).join('')}
+            ${disciplines.length > 5 ? `<span class="px-2 py-1 text-gray-500 text-xs">+${disciplines.length - 5} 更多</span>` : ''}
+          </div>
+        </div>
+      ` : ''}
+      
+      ${description ? `
+        <p class="text-sm text-gray-600 mb-4 line-clamp-2">${escapeHtml(description)}</p>
+      ` : ''}
+      
+      ${website ? `
+        <a 
+          href="${escapeHtml(website)}" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
+        >
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+          </svg>
+          訪問官網
+        </a>
+      ` : ''}
+    </div>
+  `;
+  
+  return card;
+}
+
+// 顯示載入中
+function showLoading(show) {
+  const loadingEl = document.getElementById('uni-loading');
+  if (loadingEl) {
+    loadingEl.style.display = show ? 'block' : 'none';
+  }
+}
+
+// 顯示錯誤訊息
+function showErrorMessage(message) {
+  const resultsContainer = document.getElementById('uni-results');
+  const emptyState = document.getElementById('uni-empty');
+  
+  if (resultsContainer) {
+    resultsContainer.innerHTML = `
+      <div class="col-span-full bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <svg class="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <p class="text-red-600 text-lg">${escapeHtml(message)}</p>
+      </div>
+    `;
+    resultsContainer.style.display = 'grid';
+  }
+  
+  if (emptyState) {
+    emptyState.style.display = 'none';
+  }
+}
+
 // 將函式暴露到全域，供 HTML 中的 onclick 使用
 window.deleteResource = deleteResource;
 window.confirmAppointment = confirmAppointment;
 window.navigateToView = navigateToView;
 window.sendMessage = handleSendMessage;
+window.loadUniversities = loadUniversities;
 

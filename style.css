@@ -760,3 +760,33 @@ body {
   }
 }
 
+/* ========== 大學查詢樣式 ========== */
+
+/* 大學卡片 */
+.university-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.university-card:hover {
+  transform: translateY(-4px);
+}
+
+/* 文字截斷（用於描述） */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 載入動畫 */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+

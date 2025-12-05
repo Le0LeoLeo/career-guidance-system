@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firestore 數據結構檢查工具</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #357ae8;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #output {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .success {
+      color: #0f5132;
+      background: #d1e7dd;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .error {
+      color: #842029;
+      background: #f8d7da;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .info {
+      color: #084298;
+      background: #cfe2ff;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .field-item {
+      margin: 5px 0;
+      padding: 5px;
+      background: #fff;
+      border-left: 3px solid #4285f4;
+      padding-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Firestore 數據結構檢查工具</h1>
+    <p>這個工具會幫您查看 Firestore 中 <code>universities</code> 集合的實際數據結構</p>
+    
+    <button id="check-btn" onclick="checkStructure()">檢查數據結構</button>
+    <button id="load-all-btn" onclick="loadAllData()">載入所有數據（前10筆）</button>
+    
+    <div id="output"></div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase 配置
+    const firebaseConfig = {
+      apiKey: "AIzaSyA6QVAAIBGpnt8QBAScj3gMQmnQijqX_vk",
+      authDomain: "cpaapp-8c4d6.firebaseapp.com",
+      projectId: "cpaapp-8c4d6",
+      storageBucket: "cpaapp-8c4d6.firebasestorage.app",
+      messagingSenderId: "182638554959",
+      appId: "1:182638554959:web:3e5e126b379c6c68c1df3a",
+      measurementId: "G-ME38DET581"
+    };
+
+    let db = null;
+
+    // 初始化 Firebase
+    function initFirebase() {
+      try {
+        if (typeof firebase === 'undefined') {
+          throw new Error('Firebase SDK 尚未載入');
+        }
+        
+        const app = firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        log('✅ Firebase 初始化成功', 'success');
+        return true;
+      } catch (error) {
+        log('❌ Firebase 初始化失敗：' + error.message, 'error');
+        return false;
+      }
+    }
+
+    // 記錄訊息
+    function log(message, type = 'info') {
+      const output = document.getElementById('output');
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = message;
+      output.appendChild(div);
+      output.scrollTop = output.scrollHeight;
+      console.log(message);
+    }
+
+    // 檢查數據結構
+    async function checkStructure() {
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+      
+      if (!db && !initFirebase()) {
+        return;
+      }
+      
+      try {
+        log('🔍 正在檢查 Firestore 數據結構...', 'info');
+        
+        // 讀取第一筆資料
+        const snapshot = await db.collection('universities').limit(1).get();
+        
+        if (snapshot.empty) {
+          log('⚠️ universities 集合是空的，請先添加一些數據', 'error');
+          return;
+        }
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          log('\n📄 文檔 ID: ' + doc.id, 'info');
+          log('📋 數據結構:', 'info');
+          log(JSON.stringify(data, null, 2), 'info');
+          
+          log('\n🔑 所有欄位:', 'info');
+          const fields = Object.keys(data);
+          fields.forEach(field => {
+            const value = data[field];
+            const type = typeof value;
+            log(`  - ${field}: ${type} = ${JSON.stringify(value)}`, 'field-item');
+          });
+        });
+        
+        // 讀取更多資料來查看所有可能的欄位
+        const allSnapshot = await db.collection('universities').limit(10).get();
+        const allFields = new Set();
+        allSnapshot.forEach(doc => {
+          Object.keys(doc.data()).forEach(key => allFields.add(key));
+        });
+        
+        log('\n📚 所有可能的欄位（從前10筆資料統計）:', 'info');
+        Array.from(allFields).forEach(field => {
+          log(`  - ${field}`, 'field-item');
+        });
+        
+        log(`\n✅ 檢查完成！共檢查了 ${allSnapshot.size} 筆資料`, 'success');
+        
+      } catch (error) {
+        log('❌ 檢查失敗：' + error.message, 'error');
+        log('錯誤詳情：' + error.stack, 'error');
+      }
+    }
+
+    // 載入所有數據
+    async function loadAllData() {
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+      
+      if (!db && !initFirebase()) {
+        return;
+      }
+      
+      try {
+        log('📥 正在載入所有數據（前10筆）...', 'info');
+        
+        const snapshot = await db.collection('universities').limit(10).get();
+        
+        if (snapshot.empty) {
+          log('⚠️ universities 集合是空的', 'error');
+          return;
+        }
+        
+        log(`\n📊 找到 ${snapshot.size} 筆資料：\n`, 'info');
+        
+        snapshot.forEach((doc, index) => {
+          const data = doc.data();
+          log(`\n========== 資料 ${index + 1} ==========`, 'info');
+          log(`文檔 ID: ${doc.id}`, 'info');
+          log(JSON.stringify(data, null, 2), 'info');
+        });
+        
+        log(`\n✅ 載入完成！`, 'success');
+        
+      } catch (error) {
+        log('❌ 載入失敗：' + error.message, 'error');
+        log('錯誤詳情：' + error.stack, 'error');
+      }
+    }
+
+    // 頁面載入時自動初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      initFirebase();
+    });
+  </script>
+</body>
+</html>
+
