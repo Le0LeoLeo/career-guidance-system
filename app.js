@@ -52,6 +52,11 @@ function initFirebase() {
 // ========== DOM 元素 ==========
 let views = {};
 
+// ========== 路由管理 ==========
+let viewHistory = []; // 視圖歷史棧
+let isNavigatingBack = false; // 標記是否正在執行返回操作
+let currentViewId = null; // 當前視圖ID
+
 // 初始化 views 對象（在 DOM 加載後）
 function initViews() {
   views = {
@@ -61,16 +66,25 @@ function initViews() {
     studentDecided: document.getElementById('student-decided-view'),
     studentUndecided: document.getElementById('student-undecided-view'),
     teacher: document.getElementById('teacher-view'),
-    'university-view': document.getElementById('university-view')
+    'university-view': document.getElementById('university-view'),
+    'academics-view': document.getElementById('academics-view')
   };
 }
 
 // ========== 頁面切換函式 ==========
-function showView(viewId) {
+function showView(viewId, skipHistory = false) {
   // 確保 views 已初始化
   if (Object.keys(views).length === 0) {
     initViews();
   }
+  
+  // 如果視圖相同，不執行任何操作
+  if (currentViewId === viewId) {
+    return;
+  }
+  
+  // 保存舊的視圖ID（在更新之前）
+  const previousViewId = currentViewId;
   
   // 隱藏所有視圖
   Object.values(views).forEach(view => {
@@ -80,8 +94,100 @@ function showView(viewId) {
   // 顯示指定視圖
   if (views[viewId]) {
     views[viewId].style.display = 'block';
+    
+    // 如果不是返回操作，則處理歷史記錄
+    if (!isNavigatingBack && !skipHistory) {
+      const isLoginView = viewId === 'login';
+      // 登錄頁面只有在用戶未登錄時才添加到歷史記錄
+      const shouldAddToHistory = !isLoginView || (isLoginView && !currentUser);
+      
+      if (shouldAddToHistory) {
+        // 如果之前有視圖，保存到歷史棧
+        if (previousViewId && previousViewId !== viewId) {
+          viewHistory.push(previousViewId);
+        }
+        
+        // 更新 URL 並添加到瀏覽器歷史
+        const url = `#${viewId}`;
+        history.pushState({ viewId: viewId }, '', url);
+      } else {
+        // 登錄頁面且用戶已登錄，使用 replaceState 不添加到歷史
+        const url = `#${viewId}`;
+        history.replaceState({ viewId: viewId }, '', url);
+      }
+    }
+    
+    // 更新當前視圖ID
+    currentViewId = viewId;
+    
+    console.log(`✅ 切換到視圖: ${viewId}`, { 
+      previousView: previousViewId,
+      historyLength: viewHistory.length, 
+      currentHistory: [...viewHistory] 
+    });
   } else {
     console.warn(`視圖 "${viewId}" 不存在`);
+  }
+}
+
+// 處理瀏覽器返回按鈕
+function handleBackNavigation() {
+  if (viewHistory.length > 0) {
+    // 從歷史棧中取出上一個視圖
+    const previousViewId = viewHistory.pop();
+    
+    // 如果上一個視圖是登錄頁面且用戶已登錄，跳過它
+    if (previousViewId === 'login' && currentUser) {
+      // 繼續查找下一個非登錄視圖
+      if (viewHistory.length > 0) {
+        const nextViewId = viewHistory.pop();
+        isNavigatingBack = true;
+        showView(nextViewId, true);
+        isNavigatingBack = false;
+        history.replaceState({ viewId: nextViewId }, '', `#${nextViewId}`);
+        console.log(`🔙 跳過登錄頁面，返回到視圖: ${nextViewId}`);
+      } else {
+        // 如果歷史中只有登錄頁面，返回到 dashboard
+        if (currentUser && currentViewId !== 'dashboard') {
+          isNavigatingBack = true;
+          showView('dashboard', true);
+          isNavigatingBack = false;
+          history.replaceState({ viewId: 'dashboard' }, '', '#dashboard');
+          console.log('🔙 歷史中只有登錄頁面，返回到 dashboard');
+        } else {
+          console.log('🔙 無法返回，保持在當前視圖');
+        }
+      }
+    } else {
+      // 正常返回
+      isNavigatingBack = true;
+      showView(previousViewId, true);
+      isNavigatingBack = false;
+      history.replaceState({ viewId: previousViewId }, '', `#${previousViewId}`);
+      
+      console.log(`🔙 返回到視圖: ${previousViewId}`, { 
+        remainingHistory: [...viewHistory] 
+      });
+    }
+  } else {
+    // 如果歷史為空，且用戶已登錄，返回到 dashboard（如果不在 dashboard）
+    if (currentUser && currentViewId !== 'dashboard' && currentViewId !== 'login') {
+      isNavigatingBack = true;
+      showView('dashboard', true);
+      isNavigatingBack = false;
+      history.replaceState({ viewId: 'dashboard' }, '', '#dashboard');
+      console.log('🔙 歷史為空，返回到 dashboard');
+    } else if (currentUser && currentViewId === 'login') {
+      // 如果用戶已登錄但當前在登錄頁面，返回到 dashboard
+      isNavigatingBack = true;
+      showView('dashboard', true);
+      isNavigatingBack = false;
+      history.replaceState({ viewId: 'dashboard' }, '', '#dashboard');
+      console.log('🔙 用戶已登錄但在登錄頁面，返回到 dashboard');
+    } else {
+      // 如果用戶未登錄，保持在當前視圖
+      console.log('🔙 歷史為空，保持在當前視圖');
+    }
   }
 }
 
@@ -89,6 +195,39 @@ function showView(viewId) {
 document.addEventListener('DOMContentLoaded', async () => {
   // 初始化 views 對象
   initViews();
+  
+  // 設定瀏覽器返回按鈕監聽器
+  window.addEventListener('popstate', (event) => {
+    if (event.state && event.state.viewId) {
+      // 如果 URL 中有視圖ID，切換到該視圖
+      const targetViewId = event.state.viewId;
+      if (targetViewId !== currentViewId) {
+        isNavigatingBack = true;
+        showView(targetViewId, true);
+        isNavigatingBack = false;
+        
+        // 更新歷史棧（移除當前視圖之後的所有項目）
+        const currentIndex = viewHistory.indexOf(targetViewId);
+        if (currentIndex !== -1) {
+          viewHistory = viewHistory.slice(0, currentIndex);
+        } else {
+          // 如果目標視圖不在歷史中，清空歷史（可能是直接導航）
+          viewHistory = [];
+        }
+      }
+    } else {
+      // 如果沒有狀態，嘗試從 URL hash 獲取
+      const hash = window.location.hash.slice(1);
+      if (hash && views[hash]) {
+        isNavigatingBack = true;
+        showView(hash, true);
+        isNavigatingBack = false;
+      } else {
+        // 處理返回按鈕
+        handleBackNavigation();
+      }
+    }
+  });
   
   // 先設定事件監聽器（不依賴 Supabase）
   setupEventListeners();
@@ -116,6 +255,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 設定大學查詢相關事件監聽器
   setupUniversitySearchListeners();
+  
+  // 設定學術中心相關事件監聽器
+  setupAcademicsListeners();
   
   // 檢查是否已登入
   try {
@@ -251,7 +393,14 @@ function setupAuthStateListener() {
         await supabase.auth.signOut();
         currentUser = null;
         currentProfile = null;
-        showView('login');
+        
+        // 清空視圖歷史記錄
+        viewHistory = [];
+        currentViewId = null;
+        
+        // 切換到登錄頁面（不添加到歷史記錄）
+        showView('login', true);
+        history.replaceState({ viewId: 'login' }, '', '#login');
         return;
       }
       
@@ -304,10 +453,18 @@ function setupAuthStateListener() {
       currentSessionId = null;
       isSessionsLoaded = false;
       chatHistory = [];
+      
+      // 清空視圖歷史記錄
+      viewHistory = [];
+      currentViewId = null;
+      
       // 清空聊天窗口和 Sessions 列表
       clearChatWindow();
       clearSessionsList();
-      showView('login');
+      
+      // 切換到登錄頁面（不添加到歷史記錄）
+      showView('login', true);
+      history.replaceState({ viewId: 'login' }, '', '#login');
     }
   });
 }
@@ -322,7 +479,14 @@ async function handleLogout() {
   await supabase.auth.signOut();
   currentUser = null;
   currentProfile = null;
-  showView('login');
+  
+  // 清空視圖歷史記錄
+  viewHistory = [];
+  currentViewId = null;
+  
+  // 切換到登錄頁面（不添加到歷史記錄）
+  showView('login', true);
+  history.replaceState({ viewId: 'login' }, '', '#login');
   
   // 清除導航列顯示
   const userEmailEl = document.getElementById('user-email');
@@ -392,6 +556,27 @@ async function loadUserProfile() {
   }
   
   currentProfile = data;
+  
+  // 嘗試從 localStorage 同步目標信息（如果數據庫中沒有）
+  try {
+    const stored = localStorage.getItem(`target_${currentUser.id}`);
+    if (stored) {
+      const targetData = JSON.parse(stored);
+      // 如果 localStorage 中有目標分數，但數據庫中沒有，同步到 currentProfile
+      if (targetData.target_admission_score && !currentProfile.target_admission_score) {
+        currentProfile.target_admission_score = targetData.target_admission_score;
+      }
+      // 同步其他目標信息
+      if (targetData.target_university_id && !currentProfile.target_university_id) {
+        currentProfile.target_university_id = targetData.target_university_id;
+      }
+      if (targetData.target_major_name && !currentProfile.target_major_name) {
+        currentProfile.target_major_name = targetData.target_major_name;
+      }
+    }
+  } catch (error) {
+    console.error('同步目標信息失敗：', error);
+  }
   
   // 更新導航列
   const userEmail = currentProfile.email || currentUser.email;
@@ -2358,10 +2543,1591 @@ function showErrorMessage(message) {
   }
 }
 
+// ========== 學術中心功能 ==========
+
+// 載入學術中心數據
+async function loadAcademicsData() {
+  if (!currentUser) {
+    console.error('用戶未登入');
+    return;
+  }
+
+  try {
+    // 載入目標設定
+    await loadCurrentGoal();
+    
+    // 載入考程表
+    await loadUpcomingExams();
+    
+    // 載入成績記錄
+    await loadExamScores();
+    
+    // 計算進度
+    await calculateProgress();
+  } catch (error) {
+    console.error('載入學術中心數據失敗：', error);
+  }
+}
+
+// 載入當前目標
+async function loadCurrentGoal() {
+  if (!currentUser) return;
+
+  const goalText = document.getElementById('goal-text');
+  if (!goalText) return;
+
+  // 從 localStorage 讀取目標信息
+  let targetData = null;
+  try {
+    const stored = localStorage.getItem(`target_${currentUser.id}`);
+    if (stored) {
+      targetData = JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('讀取目標信息失敗：', error);
+  }
+
+  // 如果 localStorage 中沒有，嘗試從 currentProfile 讀取（向後兼容）
+  if (!targetData && currentProfile) {
+    if (currentProfile.target_university_id && currentProfile.target_major_name) {
+      targetData = {
+        target_university_id: currentProfile.target_university_id,
+        target_major_name: currentProfile.target_major_name,
+        target_university_name: null,
+        target_admission_score: currentProfile.target_admission_score || null
+      };
+    }
+  }
+
+  // 如果還是沒有，嘗試從 Supabase 讀取
+  if (!targetData && supabase) {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('target_admission_score, target_university_id, target_major_name')
+        .eq('id', currentUser.id)
+        .single();
+      
+      // 如果字段不存在（400 错误），优雅地处理
+      if (error) {
+        // 如果是字段不存在的错误，忽略它
+        if (error.code === 'PGRST116' || error.message?.includes('column') || error.message?.includes('field')) {
+          // 字段不存在，忽略错误
+          return;
+        }
+        // 其他错误才记录
+        console.error('從數據庫讀取目標分數失敗：', error);
+        return;
+      }
+      
+      if (profile && profile.target_admission_score) {
+        // 如果數據庫中有目標分數，但沒有完整的目標信息，至少確保 currentProfile 有這個值
+        if (currentProfile) {
+          currentProfile.target_admission_score = profile.target_admission_score;
+          if (profile.target_university_id) currentProfile.target_university_id = profile.target_university_id;
+          if (profile.target_major_name) currentProfile.target_major_name = profile.target_major_name;
+        }
+      }
+    } catch (error) {
+      // 忽略字段不存在的错误
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('column') && !error?.message?.includes('field')) {
+        console.error('從數據庫讀取目標分數失敗：', error);
+      }
+    }
+  }
+
+  if (targetData && targetData.target_university_id && targetData.target_major_name) {
+    try {
+      const universityId = targetData.target_university_id;
+      const majorName = targetData.target_major_name;
+      let uniName = targetData.target_university_name;
+
+      // 如果沒有大學名稱，嘗試從 Firebase 獲取
+      if (!uniName && db) {
+        const uniDoc = await db.collection('universities').doc(universityId).get();
+        if (uniDoc.exists) {
+          const uniData = uniDoc.data();
+          uniName = uniData.name || uniData.nameEn || '未知大學';
+        }
+      }
+
+      // 確保目標分數同步到 currentProfile
+      if (targetData.target_admission_score && currentProfile) {
+        currentProfile.target_admission_score = targetData.target_admission_score;
+      }
+
+      if (uniName) {
+        goalText.textContent = `${uniName} - ${majorName}`;
+      } else {
+        goalText.textContent = `大學 ID: ${universityId} - ${majorName}`;
+      }
+    } catch (error) {
+      console.error('載入大學資訊失敗：', error);
+      goalText.textContent = `${targetData.target_major_name}`;
+    }
+  } else {
+    goalText.textContent = '尚未設定目標';
+  }
+}
+
+// 處理圖片或PDF上傳
+async function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // 檢查文件類型（支持圖片和PDF）
+  const isImage = file.type.startsWith('image/');
+  const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  
+  if (!isImage && !isPDF) {
+    alert('請上傳圖片文件（JPG、PNG）或PDF文件');
+    return;
+  }
+
+  // 檢查文件大小（限制 10MB）
+  if (file.size > 10 * 1024 * 1024) {
+    alert('文件大小不能超過 10MB');
+    return;
+  }
+
+  const loadingEl = document.getElementById('schedule-loading');
+  if (loadingEl) loadingEl.style.display = 'block';
+
+  try {
+    let base64;
+    
+    // 如果是PDF，先轉換為圖片
+    if (isPDF) {
+      console.log('檢測到PDF文件，正在轉換為圖片...');
+      base64 = await pdfToImage(file);
+    } else {
+      // 讀取圖片文件並轉換為 Base64
+      base64 = await fileToBase64(file);
+    }
+    
+    // 移除 data:image/... 前綴（如果有的話）
+    const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+
+    // 獲取組別選擇
+    const streamSelect = document.getElementById('stream-select');
+    const selectedStream = streamSelect ? streamSelect.value : 'general';
+    
+    console.log('選擇的組別：', selectedStream);
+
+    // 準備請求體（包含組別信息）
+    const requestBody = { 
+      image: base64Data,
+      stream: selectedStream
+    };
+
+    // 呼叫 Edge Function（嘗試使用 Supabase 客戶端）
+    let data, error;
+    
+    try {
+      const result = await supabase.functions.invoke('process-schedule', {
+        body: requestBody
+      });
+      data = result.data;
+      error = result.error;
+    } catch (invokeError) {
+      console.error('調用 Edge Function 時發生異常:', invokeError);
+      error = invokeError;
+    }
+
+    // 如果使用 Supabase 客戶端失敗，嘗試直接調用 Edge Function
+    if (error && (error.message?.includes('Failed to send') || error.name === 'FunctionsHttpError')) {
+      console.warn('Supabase 客戶端調用失敗，嘗試直接調用 Edge Function...');
+      
+      try {
+        const functionUrl = `${SUPABASE_URL}/functions/v1/process-schedule`;
+        const directResponse = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'apikey': SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify(requestBody)
+        });
+        
+        const responseText = await directResponse.text();
+        console.log('直接調用響應狀態:', directResponse.status);
+        console.log('直接調用響應文本（前500字符）:', responseText.substring(0, 500));
+        
+        if (directResponse.ok) {
+          try {
+            const successData = JSON.parse(responseText);
+            data = successData;
+            error = null;
+            console.log('✅ 直接調用成功');
+          } catch (parseError) {
+            console.error('解析響應 JSON 失敗:', parseError);
+            throw new Error('Edge Function 返回了無效的 JSON 格式');
+          }
+        } else {
+          // 嘗試解析錯誤訊息
+          let errorMessage = `HTTP ${directResponse.status}: ${directResponse.statusText}`;
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            if (errorData.hint) {
+              errorMessage += `\n提示: ${errorData.hint}`;
+            }
+          } catch (e) {
+            errorMessage += `\n響應: ${responseText.substring(0, 200)}`;
+          }
+          throw new Error(errorMessage);
+        }
+      } catch (fetchError) {
+        console.error('直接調用也失敗:', fetchError);
+        throw new Error(`無法連接到 Edge Function: ${fetchError.message}\n\n請確認：\n1. Edge Function 已部署（運行: supabase functions deploy process-schedule）\n2. 百度 API 配置已設置（運行: supabase secrets set BAIDU_API_KEY=... BAIDU_SECRET_KEY=...）`);
+      }
+    }
+
+    if (error) {
+      // 提供更詳細的錯誤訊息
+      let errorMessage = error.message || '未知錯誤';
+      
+      if (error.message?.includes('百度 API 配置未設定')) {
+        errorMessage = '百度 OCR API 配置未設定\n\n請運行以下命令設置：\nsupabase secrets set BAIDU_API_KEY=your_key BAIDU_SECRET_KEY=your_secret\n\n然後重新部署：\nsupabase functions deploy process-schedule';
+      } else if (error.message?.includes('無法獲取百度 Access Token')) {
+        errorMessage = '無法獲取百度 Access Token\n\n請檢查：\n1. BAIDU_API_KEY 和 BAIDU_SECRET_KEY 是否正確\n2. 百度千帆平台帳號狀態是否正常\n3. API 配額是否已用完';
+      } else if (error.message?.includes('OCR 識別失敗')) {
+        errorMessage = 'OCR 識別失敗\n\n請確認：\n1. 圖片清晰且包含完整的考試時間表\n2. 圖片格式正確（支持 JPG、PNG 等）\n3. 圖片大小不超過 10MB';
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    if (!data || !data.success || !data.schedules || data.schedules.length === 0) {
+      throw new Error('無法從圖片中提取考程表，請確認圖片清晰且包含完整的考試時間表');
+    }
+
+    // 將考程表存入資料庫
+    const schedules = data.schedules.map(schedule => {
+      // 處理 exam_type：支持英文和中文格式
+      let examType = 'exam'; // 默認為考試
+      if (schedule.exam_type === 'test' || schedule.exam_type === '測驗') {
+        examType = 'test';
+      } else if (schedule.exam_type === 'exam' || schedule.exam_type === '考試') {
+        examType = 'exam';
+      }
+      
+      return {
+        user_id: currentUser.id,
+        subject: schedule.subject,
+        exam_date: schedule.exam_date,
+        exam_time: schedule.exam_time || null,
+        exam_type: examType
+      };
+    });
+
+    const { error: insertError } = await supabase
+      .from('exam_schedules')
+      .insert(schedules);
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    // 立即重新載入考程表（在顯示提示之前）
+    await loadUpcomingExams();
+    
+    // 顯示成功訊息
+    alert(`成功新增 ${schedules.length} 項考試到考程表！`);
+    
+    // 清空文件輸入
+    event.target.value = '';
+
+  } catch (error) {
+    console.error('處理圖片失敗：', error);
+    alert('處理圖片失敗：' + (error.message || '未知錯誤'));
+  } finally {
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+}
+
+// 將文件轉換為 Base64
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// 將PDF轉換為圖片（Base64）
+async function pdfToImage(file) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // 設置PDF.js worker
+      if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      } else {
+        throw new Error('PDF.js 庫未載入，請確認已引入 pdf.min.js');
+      }
+
+      // 讀取PDF文件
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      // 獲取第一頁（考程表通常在第一頁）
+      const page = await pdf.getPage(1);
+      
+      // 設置渲染選項（提高分辨率以獲得更好的OCR效果）
+      const viewport = page.getViewport({ scale: 2.0 }); // 2倍縮放提高清晰度
+      
+      // 創建canvas
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      // 渲染PDF頁面到canvas
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      // 將canvas轉換為Base64圖片
+      const imageData = canvas.toDataURL('image/png');
+      console.log('✅ PDF轉換為圖片成功，尺寸：', canvas.width, 'x', canvas.height);
+      
+      resolve(imageData);
+    } catch (error) {
+      console.error('❌ PDF轉換失敗：', error);
+      reject(new Error('PDF轉換失敗：' + (error.message || '未知錯誤')));
+    }
+  });
+}
+
+// 載入即將到來的考試
+async function loadUpcomingExams() {
+  if (!currentUser) return;
+
+  try {
+    // 使用本地時間獲取今天的日期字符串（YYYY-MM-DD）
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    // 查詢所有考程表（包括過期的）
+    const { data: schedules, error: schedulesError } = await supabase
+      .from('exam_schedules')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('exam_date', { ascending: true });
+    
+    if (schedulesError) throw schedulesError;
+
+    // 查詢所有成績記錄（用於檢查哪些考試已有成績）
+    let scoresMap = {};
+    try {
+      const { data: scores, error: scoresError } = await supabase
+        .from('exam_scores')
+        .select('*')
+        .eq('user_id', currentUser.id);
+      
+      if (!scoresError && scores) {
+        // 建立 schedule_id 到成績的映射
+        scores.forEach(score => {
+          if (score.schedule_id) {
+            scoresMap[score.schedule_id] = score;
+          }
+        });
+      }
+    } catch (scoresErr) {
+      // 如果 exam_scores 表不存在或查詢失敗，忽略錯誤，繼續顯示考程表
+      console.warn('查詢成績記錄失敗（將繼續顯示考程表）：', scoresErr);
+    }
+    
+    // 在客戶端按日期和時間排序
+    if (schedules) {
+      schedules.sort((a, b) => {
+        if (a.exam_date !== b.exam_date) {
+          return a.exam_date.localeCompare(b.exam_date);
+        }
+        const timeA = a.exam_time || '';
+        const timeB = b.exam_time || '';
+        return timeA.localeCompare(timeB);
+      });
+    }
+
+    const examsList = document.getElementById('exam-schedule-list');
+    const examsEmpty = document.getElementById('exams-empty');
+
+    if (!examsList) {
+      console.warn('找不到 exam-schedule-list 容器');
+      return;
+    }
+
+    if (!examsEmpty) {
+      console.warn('找不到 exams-empty 容器');
+    }
+
+    // 控制清空按鈕的顯示/隱藏
+    const clearAllBtn = document.getElementById('clear-all-exams-btn');
+    if (clearAllBtn) {
+      if (schedules && schedules.length > 0) {
+        clearAllBtn.style.display = 'flex';
+      } else {
+        clearAllBtn.style.display = 'none';
+      }
+    }
+
+    // 判斷是否有資料
+    if (!schedules || schedules.length === 0) {
+      examsList.innerHTML = '';
+      examsList.style.display = 'none';
+      if (examsEmpty) {
+        examsEmpty.style.display = 'block';
+      }
+      return;
+    }
+
+    // 顯示列表，隱藏空狀態
+    examsList.style.display = 'block';
+    if (examsEmpty) {
+      examsEmpty.style.display = 'none';
+    }
+
+    // 渲染時間軸列表
+    renderExamScheduleList(examsList, schedules, scoresMap, today);
+
+  } catch (error) {
+    // 如果表不存在（404/PGRST205），优雅地处理，不显示错误
+    if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+      const examsList = document.getElementById('exam-schedule-list');
+      const examsEmpty = document.getElementById('exams-empty');
+      const clearAllBtn = document.getElementById('clear-all-exams-btn');
+      
+      if (examsList) {
+        examsList.innerHTML = '';
+        examsList.style.display = 'none';
+      }
+      if (examsEmpty) {
+        examsEmpty.style.display = 'block';
+      }
+      if (clearAllBtn) {
+        clearAllBtn.style.display = 'none';
+      }
+      return;
+    }
+    console.error('載入考程表失敗：', error);
+  }
+}
+
+// 渲染考程表列表（時間軸樣式）
+function renderExamScheduleList(container, schedules, scoresMap, today) {
+  container.innerHTML = '';
+  
+  // 創建時間軸容器
+  const timeline = document.createElement('div');
+  timeline.className = 'exam-timeline space-y-4';
+  
+  schedules.forEach((exam, index) => {
+    // 解析考試日期（使用本地時間，避免時區問題）
+    // exam.exam_date 格式應該是 "YYYY-MM-DD"
+    const [year, month, day] = exam.exam_date.split('-').map(Number);
+    const examDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+    
+    // 使用傳入的 today 參數創建今天的日期對象（確保一致性）
+    const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+    const todayDate = new Date(todayYear, todayMonth - 1, todayDay, 0, 0, 0, 0);
+    
+    // 計算距離今天的天數（使用 Math.floor，因為我們已經設置了時間為 0:0:0:0）
+    const daysDiff = Math.floor((examDate - todayDate) / (1000 * 60 * 60 * 24));
+    
+    // 判斷狀態：先判斷是否為今天，再判斷是否為過去
+    const isToday = daysDiff === 0;
+    const isPast = daysDiff < 0;
+    const isUpcoming = daysDiff > 0 && daysDiff <= 7;
+    
+    // 格式化日期顯示
+    const dateDisplay = examDate.toLocaleDateString('zh-TW', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      weekday: 'short'
+    });
+    
+    // 格式化時間顯示
+    const timeDisplay = exam.exam_time || '時間未定';
+    const typeDisplay = exam.exam_type === 'test' ? '測驗' : '考試';
+    
+    // 判斷狀態樣式
+    let statusClass = '';
+    let statusText = '';
+    let statusIcon = '';
+    
+    if (isPast) {
+      statusClass = 'text-gray-400 bg-gray-50 border-gray-200';
+      statusText = '已過期';
+      statusIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+    } else if (isToday) {
+      statusClass = 'text-orange-600 bg-orange-50 border-orange-300';
+      statusText = '今天';
+      statusIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+    } else if (isUpcoming) {
+      statusClass = 'text-red-600 bg-red-50 border-red-300';
+      statusText = `還有 ${daysDiff} 天`;
+      statusIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+    } else {
+      statusClass = 'text-blue-600 bg-blue-50 border-blue-300';
+      statusText = `還有 ${daysDiff} 天`;
+      statusIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+    }
+    
+    const score = scoresMap[exam.id] || null;
+    
+    // 創建考試卡片
+    const examCard = document.createElement('div');
+    examCard.className = `exam-schedule-item ${isPast ? 'opacity-60' : ''} bg-white rounded-lg border-l-4 ${statusClass.split(' ')[2]} shadow-sm hover:shadow-md transition-all duration-200`;
+    
+    // 成績區塊
+    let scoreSection = '';
+    if (score) {
+      const percentage = ((score.score_obtained / score.full_marks) * 100).toFixed(1);
+      scoreSection = `
+        <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-700">已填寫分數：</span>
+            <span class="text-lg font-bold text-green-600">${score.score_obtained} / ${score.full_marks} (${percentage}%)</span>
+          </div>
+        </div>
+      `;
+    } else {
+      // 無論是否過期，都可以填入分數
+      scoreSection = `
+        <div class="mt-3">
+          <button 
+            onclick="openScoreModal('${exam.id}', '${escapeHtml(exam.subject)}', '${exam.exam_date}', '${timeDisplay}')" 
+            class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors duration-200 flex items-center justify-center gap-2 ${isPast ? 'opacity-90' : ''}"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            填寫分數
+          </button>
+        </div>
+      `;
+    }
+    
+    examCard.innerHTML = `
+      <div class="p-4">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-3 mb-2">
+              <h4 class="font-semibold text-lg ${isPast ? 'text-gray-500' : 'text-gray-800'}">${escapeHtml(exam.subject)}</h4>
+              <span class="px-2 py-1 text-xs font-semibold rounded ${exam.exam_type === 'test' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}">${typeDisplay}</span>
+            </div>
+            
+            <div class="flex items-center gap-4 text-sm ${isPast ? 'text-gray-400' : 'text-gray-600'}">
+              <div class="flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <span class="font-medium">${dateDisplay}</span>
+              </div>
+              ${exam.exam_time ? `
+                <div class="flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span>${timeDisplay}</span>
+                </div>
+              ` : ''}
+              <div class="flex items-center gap-1 ${statusClass} px-2 py-1 rounded">
+                ${statusIcon}
+                <span class="text-xs font-medium">${statusText}</span>
+              </div>
+            </div>
+            
+            ${scoreSection}
+          </div>
+          
+          <button 
+            onclick="event.stopPropagation(); deleteExamSchedule('${exam.id}')" 
+            class="ml-4 text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+            title="刪除"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+    
+    timeline.appendChild(examCard);
+  });
+  
+  container.appendChild(timeline);
+}
+
+// 創建考試項目元素
+function createExamItem(exam, score = null) {
+  const item = document.createElement('div');
+  item.className = 'exam-schedule-card bg-white rounded-lg p-4 border-l-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer';
+  
+  // 解析考試日期（使用本地時間，避免時區問題）
+  const [year, month, day] = exam.exam_date.split('-').map(Number);
+  const examDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // 計算距離今天的天數（使用 Math.floor，因為我們已經設置了時間為 0:0:0:0）
+  const daysUntil = Math.floor((examDate - today) / (1000 * 60 * 60 * 24));
+  
+  // 判斷是否即將到來（7天內，且是未來）
+  const isUpcoming = daysUntil > 0 && daysUntil <= 7;
+  const borderColor = isUpcoming ? 'border-red-500' : 'border-blue-500';
+  item.className = `exam-schedule-card bg-white rounded-lg p-4 border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer`;
+
+  const dateStr = examDate.toLocaleDateString('zh-TW', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    weekday: 'short'
+  });
+
+  const timeStr = exam.exam_time || '時間未定';
+  const typeStr = exam.exam_type === 'test' ? '測驗' : '考試';
+  const upcomingBadge = isUpcoming ? 
+    `<span class="ml-2 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">即將到來</span>` : '';
+
+  // 如果有成績，顯示分數；否則顯示填寫分數按鈕
+  let scoreSection = '';
+  if (score) {
+    const percentage = ((score.score_obtained / score.full_marks) * 100).toFixed(1);
+    scoreSection = `
+      <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-gray-700">已填寫分數：</span>
+          <span class="text-lg font-bold text-green-600">${score.score_obtained} / ${score.full_marks} (${percentage}%)</span>
+        </div>
+      </div>
+    `;
+  } else {
+    scoreSection = `
+      <div class="mt-3">
+        <button 
+          onclick="openScoreModal('${exam.id}', '${escapeHtml(exam.subject)}', '${exam.exam_date}', '${timeStr}')" 
+          class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors duration-200 flex items-center justify-center gap-2"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+          </svg>
+          填寫分數
+        </button>
+      </div>
+    `;
+  }
+
+  item.innerHTML = `
+    <div class="flex items-center justify-between">
+      <div class="flex-1">
+        <h4 class="font-semibold text-gray-800 text-lg">${escapeHtml(exam.subject)}</h4>
+        <p class="text-sm text-gray-600 mt-1">
+          <span class="font-medium">${dateStr}</span>
+          ${exam.exam_time ? `<span class="ml-2">${timeStr}</span>` : ''}
+          <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">${typeStr}</span>
+          ${upcomingBadge}
+        </p>
+        ${scoreSection}
+      </div>
+      <button 
+        onclick="event.stopPropagation(); deleteExamSchedule('${exam.id}')" 
+        class="ml-4 text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors"
+        title="刪除"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+
+  return item;
+}
+
+// 刪除考程表項目
+async function deleteExamSchedule(examId) {
+  if (!confirm('確定要刪除這項考試嗎？')) return;
+
+  try {
+    const { error } = await supabase
+      .from('exam_schedules')
+      .delete()
+      .eq('id', examId)
+      .eq('user_id', currentUser.id);
+
+    if (error) throw error;
+
+    await loadUpcomingExams();
+  } catch (error) {
+    console.error('刪除考試失敗：', error);
+    alert('刪除失敗：' + (error.message || '未知錯誤'));
+  }
+}
+
+// 一鍵清空所有考程表
+async function clearAllExamSchedules() {
+  try {
+    // 先獲取所有考程表記錄進行去重檢查
+    const { data: allSchedules, error: fetchError } = await supabase
+      .from('exam_schedules')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: true });
+
+    if (fetchError) throw fetchError;
+
+    if (!allSchedules || allSchedules.length === 0) {
+      alert('考程表已經是空的');
+      return;
+    }
+
+    // 檢查並去重重複記錄
+    // 重複定義：相同的 subject、exam_date、exam_time、exam_type
+    const seen = new Map();
+    const duplicatesToDelete = [];
+    let duplicateCount = 0;
+
+    allSchedules.forEach(schedule => {
+      // 創建唯一鍵：subject + exam_date + exam_time + exam_type
+      const key = `${schedule.subject}|${schedule.exam_date}|${schedule.exam_time || ''}|${schedule.exam_type}`;
+      
+      if (seen.has(key)) {
+        // 找到重複，保留最早創建的（seen 中的），刪除當前這個
+        duplicatesToDelete.push(schedule.id);
+        duplicateCount++;
+      } else {
+        // 第一次見到，記錄下來
+        seen.set(key, schedule);
+      }
+    });
+
+    // 如果有重複記錄，先自動去重
+    if (duplicatesToDelete.length > 0) {
+      const { error: dedupeError } = await supabase
+        .from('exam_schedules')
+        .delete()
+        .in('id', duplicatesToDelete);
+
+      if (dedupeError) throw dedupeError;
+
+      // 重新載入以更新顯示
+      await loadUpcomingExams();
+      
+      // 顯示去重訊息
+      const continueClear = confirm(
+        `✓ 已自動去重 ${duplicateCount} 筆重複記錄\n\n` +
+        `⚠️ 警告：是否要繼續清空所有剩餘的考程表記錄？\n此操作無法復原！`
+      );
+      
+      if (!continueClear) {
+        return; // 用戶取消，只去重不清空
+      }
+    } else {
+      // 沒有重複記錄，直接確認清空
+      const confirmed = confirm('⚠️ 警告：此操作將刪除所有考程表記錄，且無法復原！\n\n確定要清空所有考程表嗎？');
+      if (!confirmed) return;
+    }
+
+    // 刪除所有剩餘的記錄
+    const { error: deleteError } = await supabase
+      .from('exam_schedules')
+      .delete()
+      .eq('user_id', currentUser.id);
+
+    if (deleteError) throw deleteError;
+
+    // 重新載入考程表（會顯示空狀態）
+    await loadUpcomingExams();
+    
+    // 顯示成功訊息
+    let message = '✓ 已成功清空所有考程表';
+    if (duplicateCount > 0) {
+      message += `\n（已自動去重 ${duplicateCount} 筆重複記錄）`;
+    }
+    alert(message);
+  } catch (error) {
+    console.error('清空考程表失敗：', error);
+    alert('清空失敗：' + (error.message || '未知錯誤'));
+  }
+}
+
+// 載入成績記錄
+async function loadExamScores() {
+  if (!currentUser) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('exam_scores')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const scoresList = document.getElementById('scores-list');
+    const scoresEmpty = document.getElementById('scores-empty');
+
+    if (!scoresList || !scoresEmpty) return;
+
+    if (!data || data.length === 0) {
+      scoresList.innerHTML = '';
+      scoresList.style.display = 'none';
+      scoresEmpty.style.display = 'block';
+      return;
+    }
+
+    scoresList.innerHTML = '';
+    scoresList.style.display = 'block';
+    scoresEmpty.style.display = 'none';
+
+    // 按科目分組
+    const scoresBySubject = {};
+    data.forEach(score => {
+      if (!scoresBySubject[score.subject]) {
+        scoresBySubject[score.subject] = [];
+      }
+      scoresBySubject[score.subject].push(score);
+    });
+
+    Object.keys(scoresBySubject).forEach(subject => {
+      const subjectScores = scoresBySubject[subject];
+      const subjectDiv = document.createElement('div');
+      subjectDiv.className = 'mb-4 p-4 bg-gray-50 rounded-lg';
+      
+      subjectDiv.innerHTML = `
+        <h4 class="font-semibold text-gray-800 mb-2">${escapeHtml(subject)}</h4>
+        <div class="space-y-2">
+          ${subjectScores.map(score => createScoreItem(score)).join('')}
+        </div>
+      `;
+      
+      scoresList.appendChild(subjectDiv);
+    });
+
+  } catch (error) {
+    // 如果表不存在（404/PGRST205），优雅地处理，不显示错误
+    if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+      const scoresList = document.getElementById('scores-list');
+      const scoresEmpty = document.getElementById('scores-empty');
+      if (scoresList && scoresEmpty) {
+        scoresList.innerHTML = '';
+        scoresList.style.display = 'none';
+        scoresEmpty.style.display = 'block';
+      }
+      return;
+    }
+    console.error('載入成績記錄失敗：', error);
+  }
+}
+
+// 創建成績項目元素
+function createScoreItem(score) {
+  const typeMap = {
+    'test_score': '測驗',
+    'exam_score': '考試',
+    'daily_performance': '日常表現'
+  };
+  const typeStr = typeMap[score.type] || score.type;
+  const percentage = ((score.score_obtained / score.full_marks) * 100).toFixed(1);
+  const dateStr = new Date(score.created_at).toLocaleDateString('zh-TW');
+
+  return `
+    <div class="flex items-center justify-between p-2 bg-white rounded">
+      <div class="flex-1">
+        <span class="text-sm font-medium text-gray-700">${typeStr}</span>
+        <span class="ml-2 text-sm text-gray-600">${score.score_obtained} / ${score.full_marks} (${percentage}%)</span>
+        <span class="ml-2 text-xs text-gray-500">${dateStr}</span>
+      </div>
+      <button 
+        onclick="deleteExamScore('${score.id}')" 
+        class="ml-2 text-red-500 hover:text-red-700 text-sm"
+        title="刪除"
+      >
+        刪除
+      </button>
+    </div>
+  `;
+}
+
+// 刪除成績記錄
+async function deleteExamScore(scoreId) {
+  if (!confirm('確定要刪除這筆成績嗎？')) return;
+
+  try {
+    const { error } = await supabase
+      .from('exam_scores')
+      .delete()
+      .eq('id', scoreId)
+      .eq('user_id', currentUser.id);
+
+    if (error) throw error;
+
+    await loadExamScores();
+    await calculateProgress();
+  } catch (error) {
+    console.error('刪除成績失敗：', error);
+    alert('刪除失敗：' + (error.message || '未知錯誤'));
+  }
+}
+
+// 打開分數輸入模態框
+function openScoreModal(scheduleId, subject, examDate, examTime) {
+  const modal = new bootstrap.Modal(document.getElementById('scoreModal'));
+  
+  // 設置表單值
+  document.getElementById('modal-schedule-id').value = scheduleId;
+  document.getElementById('modal-exam-subject').value = subject;
+  
+  // 格式化日期顯示（使用本地時間，避免時區問題）
+  const [year, month, day] = examDate.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const dateStr = dateObj.toLocaleDateString('zh-TW', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    weekday: 'short'
+  });
+  document.getElementById('modal-exam-date').value = `${dateStr} ${examTime || ''}`.trim();
+  
+  // 重置輸入框
+  document.getElementById('modal-score-obtained').value = '';
+  document.getElementById('modal-score-full-marks').value = '100';
+  
+  // 打開模態框
+  modal.show();
+}
+
+// 處理分數輸入模態框的保存
+async function handleScoreModalSave() {
+  if (!currentUser) {
+    alert('請先登入');
+    return;
+  }
+
+  const scheduleId = document.getElementById('modal-schedule-id').value;
+  const subject = document.getElementById('modal-exam-subject').value.trim();
+  const scoreObtained = parseFloat(document.getElementById('modal-score-obtained').value);
+  const fullMarks = parseFloat(document.getElementById('modal-score-full-marks').value);
+
+  if (!scheduleId || !subject || isNaN(scoreObtained) || isNaN(fullMarks) || fullMarks <= 0) {
+    alert('請填寫完整的成績資訊');
+    return;
+  }
+
+  if (scoreObtained < 0 || scoreObtained > fullMarks) {
+    alert('得分不能小於 0 或大於滿分');
+    return;
+  }
+
+  try {
+    // 先查詢該考試的類型（從 exam_schedules 表）
+    const { data: schedule, error: scheduleError } = await supabase
+      .from('exam_schedules')
+      .select('exam_type')
+      .eq('id', scheduleId)
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (scheduleError) throw scheduleError;
+
+    // 根據 exam_type 決定 type
+    const type = schedule.exam_type === 'test' ? 'test_score' : 'exam_score';
+
+    // 插入成績記錄，關聯 schedule_id
+    const { error } = await supabase
+      .from('exam_scores')
+      .insert({
+        user_id: currentUser.id,
+        schedule_id: scheduleId,
+        subject: subject,
+        type: type,
+        score_obtained: scoreObtained,
+        full_marks: fullMarks
+      });
+
+    if (error) throw error;
+
+    // 關閉模態框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('scoreModal'));
+    if (modal) {
+      modal.hide();
+    }
+
+    // 重新載入考程表和進度
+    await loadUpcomingExams();
+    await loadExamScores();
+    await calculateProgress();
+
+    alert('成績已成功記錄！');
+
+  } catch (error) {
+    console.error('新增成績失敗：', error);
+    alert('新增成績失敗：' + (error.message || '未知錯誤'));
+  }
+}
+
+// 處理成績輸入表單（保留以備後用，但現在主要使用 Modal）
+async function handleScoreInputSubmit(event) {
+  event.preventDefault();
+
+  if (!currentUser) {
+    alert('請先登入');
+    return;
+  }
+
+  const subject = document.getElementById('score-subject')?.value.trim();
+  const type = document.getElementById('score-type')?.value;
+  const scoreObtained = parseFloat(document.getElementById('score-obtained')?.value);
+  const fullMarks = parseFloat(document.getElementById('score-full-marks')?.value);
+
+  if (!subject || isNaN(scoreObtained) || isNaN(fullMarks) || fullMarks <= 0) {
+    alert('請填寫完整的成績資訊');
+    return;
+  }
+
+  if (scoreObtained < 0 || scoreObtained > fullMarks) {
+    alert('得分不能小於 0 或大於滿分');
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('exam_scores')
+      .insert({
+        user_id: currentUser.id,
+        subject: subject,
+        type: type,
+        score_obtained: scoreObtained,
+        full_marks: fullMarks
+      });
+
+    if (error) throw error;
+
+    // 清空表單
+    event.target.reset();
+    if (document.getElementById('score-full-marks')) {
+      document.getElementById('score-full-marks').value = '100';
+    }
+
+    // 重新載入成績和進度
+    await loadExamScores();
+    await calculateProgress();
+
+    alert('成績已成功記錄！');
+
+  } catch (error) {
+    console.error('新增成績失敗：', error);
+    alert('新增成績失敗：' + (error.message || '未知錯誤'));
+  }
+}
+
+// 計算進度
+async function calculateProgress() {
+  if (!currentUser || !currentProfile) return;
+
+  // 先嘗試從 currentProfile 獲取目標分數
+  let targetScore = currentProfile.target_admission_score;
+  
+  // 如果沒有，嘗試從 localStorage 讀取
+  if (!targetScore) {
+    try {
+      const stored = localStorage.getItem(`target_${currentUser.id}`);
+      if (stored) {
+        const targetData = JSON.parse(stored);
+        if (targetData.target_admission_score) {
+          targetScore = targetData.target_admission_score;
+          // 同步到 currentProfile
+          currentProfile.target_admission_score = targetScore;
+        }
+      }
+    } catch (error) {
+      console.error('讀取目標分數失敗：', error);
+    }
+  }
+  
+  // 如果還是沒有，嘗試從 Supabase 讀取
+  if (!targetScore && supabase) {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('target_admission_score')
+        .eq('id', currentUser.id)
+        .single();
+      
+      // 如果字段不存在（400 错误），优雅地处理
+      if (error) {
+        // 如果是字段不存在的错误，忽略它
+        if (error.code === 'PGRST116' || error.message?.includes('column') || error.message?.includes('field')) {
+          // 字段不存在，忽略错误
+          return null;
+        }
+        // 其他错误才记录
+        console.error('從數據庫讀取目標分數失敗：', error);
+        return null;
+      }
+      
+      if (profile && profile.target_admission_score) {
+        targetScore = profile.target_admission_score;
+        currentProfile.target_admission_score = targetScore;
+      }
+    } catch (error) {
+      // 忽略字段不存在的错误
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('column') && !error?.message?.includes('field')) {
+        console.error('從數據庫讀取目標分數失敗：', error);
+      }
+    }
+  }
+
+  if (!targetScore) {
+    // 如果沒有設定目標，顯示提示
+    const currentScoreEl = document.getElementById('current-weighted-score');
+    const targetScoreEl = document.getElementById('target-score-display');
+    const gapEl = document.getElementById('score-gap');
+    const messageEl = document.getElementById('progress-message');
+
+    if (currentScoreEl) currentScoreEl.textContent = '-';
+    if (targetScoreEl) targetScoreEl.textContent = '-';
+    if (gapEl) gapEl.textContent = '-';
+    if (messageEl) {
+      messageEl.innerHTML = '<p class="text-gray-600">請先設定目標以查看進度</p>';
+    }
+    return;
+  }
+
+  try {
+    // 獲取所有成績
+    const { data: scores, error } = await supabase
+      .from('exam_scores')
+      .select('*')
+      .eq('user_id', currentUser.id);
+
+    if (error) throw error;
+
+    if (!scores || scores.length === 0) {
+      const currentScoreEl = document.getElementById('current-weighted-score');
+      const targetScoreEl = document.getElementById('target-score-display');
+      const gapEl = document.getElementById('score-gap');
+      const messageEl = document.getElementById('progress-message');
+
+      if (currentScoreEl) currentScoreEl.textContent = '-';
+      if (targetScoreEl) targetScoreEl.textContent = targetScore.toFixed(1);
+      if (gapEl) gapEl.textContent = '-';
+      if (messageEl) {
+        messageEl.innerHTML = '<p class="text-gray-600">請輸入成績以查看進度</p>';
+      }
+      return;
+    }
+
+    // 按科目分組計算
+    const subjectScores = {};
+    scores.forEach(score => {
+      if (!subjectScores[score.subject]) {
+        subjectScores[score.subject] = {
+          test_scores: [],
+          exam_scores: [],
+          daily_scores: []
+        };
+      }
+      
+      const percentage = (score.score_obtained / score.full_marks) * 100;
+      
+      if (score.type === 'test_score') {
+        subjectScores[score.subject].test_scores.push(percentage);
+      } else if (score.type === 'exam_score') {
+        subjectScores[score.subject].exam_scores.push(percentage);
+      } else if (score.type === 'daily_performance') {
+        subjectScores[score.subject].daily_scores.push(percentage);
+      }
+    });
+
+    // 計算每個科目的加權總分
+    let totalWeightedScore = 0;
+    let subjectCount = 0;
+
+    Object.keys(subjectScores).forEach(subject => {
+      const subj = subjectScores[subject];
+      
+      // 計算平均值
+      const avgTest = subj.test_scores.length > 0 
+        ? subj.test_scores.reduce((a, b) => a + b, 0) / subj.test_scores.length 
+        : 0;
+      const avgExam = subj.exam_scores.length > 0 
+        ? subj.exam_scores.reduce((a, b) => a + b, 0) / subj.exam_scores.length 
+        : 0;
+      const avgDaily = subj.daily_scores.length > 0 
+        ? subj.daily_scores.reduce((a, b) => a + b, 0) / subj.daily_scores.length 
+        : 0;
+
+      // 計算加權總分：(測驗平均 * 0.2) + (考試平均 * 0.2) + (日常表現 * 0.6)
+      const weightedScore = (avgTest * 0.2) + (avgExam * 0.2) + (avgDaily * 0.6);
+      
+      totalWeightedScore += weightedScore;
+      subjectCount++;
+    });
+
+    // 計算總平均
+    const currentWeightedScore = subjectCount > 0 ? totalWeightedScore / subjectCount : 0;
+    const gap = targetScore - currentWeightedScore;
+
+    // 更新 UI
+    const currentScoreEl = document.getElementById('current-weighted-score');
+    const targetScoreEl = document.getElementById('target-score-display');
+    const gapEl = document.getElementById('score-gap');
+    const messageEl = document.getElementById('progress-message');
+
+    if (currentScoreEl) currentScoreEl.textContent = currentWeightedScore.toFixed(1);
+    if (targetScoreEl) targetScoreEl.textContent = targetScore.toFixed(1);
+    
+    if (gapEl) {
+      gapEl.textContent = gap >= 0 ? `+${gap.toFixed(1)}` : gap.toFixed(1);
+      gapEl.className = gap >= 0 ? 'text-2xl font-bold text-red-600' : 'text-2xl font-bold text-green-600';
+    }
+
+    if (messageEl) {
+      if (gap <= 0) {
+        messageEl.innerHTML = `
+          <p class="text-green-600 font-semibold">🎉 恭喜！你已達到目標分數！</p>
+        `;
+      } else {
+        messageEl.innerHTML = `
+          <p class="text-gray-800 font-semibold">你還需要再努力賺取 <span class="text-red-600">${gap.toFixed(1)}</span> 分才能達標！</p>
+          <p class="text-sm text-gray-600 mt-2">繼續加油！</p>
+        `;
+      }
+    }
+
+  } catch (error) {
+    console.error('計算進度失敗：', error);
+  }
+}
+
+// 開啟目標選擇模態框
+async function openGoalSelectionModal() {
+  const modal = document.getElementById('goal-selection-modal');
+  if (!modal) return;
+
+  modal.style.display = 'block';
+
+  // 載入大學列表
+  await loadGoalUniversities();
+}
+
+// 載入目標選擇的大學列表
+async function loadGoalUniversities() {
+  if (!db) {
+    console.error('Firestore 尚未初始化');
+    return;
+  }
+
+  try {
+    const snapshot = await db.collection('universities').get();
+    const universities = [];
+    
+    snapshot.forEach(doc => {
+      universities.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    const listContainer = document.getElementById('goal-universities-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+
+    if (universities.length === 0) {
+      listContainer.innerHTML = '<p class="text-gray-600">目前尚無大學資料</p>';
+      return;
+    }
+
+    universities.forEach(uni => {
+      const item = document.createElement('div');
+      item.className = 'p-3 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors';
+      item.innerHTML = `
+        <h4 class="font-semibold text-gray-800">${escapeHtml(uni.name || uni.nameEn || '未知大學')}</h4>
+        ${uni.city ? `<p class="text-sm text-gray-600">${escapeHtml(uni.city)}</p>` : ''}
+      `;
+      item.addEventListener('click', () => selectUniversityForGoal(uni));
+      listContainer.appendChild(item);
+    });
+
+    // 設定搜尋功能
+    const searchInput = document.getElementById('goal-uni-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const keyword = e.target.value.toLowerCase();
+        Array.from(listContainer.children).forEach(item => {
+          const text = item.textContent.toLowerCase();
+          item.style.display = text.includes(keyword) ? 'block' : 'none';
+        });
+      });
+    }
+
+  } catch (error) {
+    console.error('載入大學列表失敗：', error);
+  }
+}
+
+// 選擇大學（顯示科系列表）
+async function selectUniversityForGoal(university) {
+  const majorsSection = document.getElementById('goal-majors-section');
+  const majorsList = document.getElementById('goal-majors-list');
+  
+  if (!majorsSection || !majorsList) return;
+
+  // 從 metadata.disciplines 讀取科系資料（Firebase 中的實際欄位）
+  // 如果沒有，也檢查 majors 欄位（向後兼容）
+  const disciplines = university.metadata?.disciplines || [];
+  const majors = university.majors || [];
+  
+  // 合併兩個來源的科系資料
+  let allMajors = [];
+  
+  // 先處理 disciplines（字符串數組）
+  if (disciplines.length > 0) {
+    allMajors = disciplines.map(d => typeof d === 'string' ? d : (d.name || String(d)));
+  }
+  
+  // 再處理 majors（可能是對象或字符串）
+  if (majors.length > 0) {
+    majors.forEach(major => {
+      const majorName = typeof major === 'string' ? major : (major.name || '未知科系');
+      if (!allMajors.includes(majorName)) {
+        allMajors.push(majorName);
+      }
+    });
+  }
+
+  if (allMajors.length === 0) {
+    majorsList.innerHTML = '<p class="text-gray-600">此大學暫無科系資料，請聯繫管理員添加</p>';
+    majorsSection.style.display = 'block';
+    return;
+  }
+
+  majorsList.innerHTML = '';
+
+  allMajors.forEach(majorName => {
+    const majorItem = document.createElement('div');
+    majorItem.className = 'p-3 border border-gray-200 rounded-lg hover:bg-purple-50 cursor-pointer transition-colors';
+    
+    // 對於 disciplines，我們只有科系名稱，沒有錄取分數
+    // 如果需要錄取分數，可以從其他地方獲取或使用默認值
+    majorItem.innerHTML = `
+      <h4 class="font-semibold text-gray-800">${escapeHtml(majorName)}</h4>
+      <p class="text-sm text-gray-500">點擊選擇此科系作為目標</p>
+    `;
+    
+    majorItem.addEventListener('click', () => selectMajorForGoal(university, majorName));
+    majorsList.appendChild(majorItem);
+  });
+
+  majorsSection.style.display = 'block';
+}
+
+// 選擇科系並更新目標
+async function selectMajorForGoal(university, major) {
+  if (!currentUser) {
+    alert('請先登入');
+    return;
+  }
+
+  const majorName = typeof major === 'string' ? major : (major.name || '未知科系');
+
+  try {
+    // 查找該科系的錄取分數
+    let targetAdmissionScore = null;
+    
+    // 先從 majors 數組中查找（如果 majors 是對象數組）
+    if (university.majors && Array.isArray(university.majors)) {
+      const majorObj = university.majors.find(m => {
+        const mName = typeof m === 'string' ? m : (m.name || '');
+        return mName === majorName;
+      });
+      
+      if (majorObj && typeof majorObj === 'object' && majorObj.admission_score) {
+        targetAdmissionScore = majorObj.admission_score;
+      }
+    }
+    
+    // 如果沒有找到，嘗試從 admission_scores 中查找
+    if (!targetAdmissionScore && university.admission_scores) {
+      // admission_scores 可能是對象，key 是科系名稱
+      if (typeof university.admission_scores === 'object') {
+        targetAdmissionScore = university.admission_scores[majorName];
+      }
+    }
+    
+    // 如果還是沒有找到，嘗試根據大學名稱判斷 Tier 並使用默認分數
+    if (!targetAdmissionScore) {
+      const uniName = (university.name || university.nameEn || '').toLowerCase();
+      
+      // 根據大學名稱判斷 Tier（與 admin-seed.js 中的邏輯一致）
+      if (uniName.includes('香港大學') || uniName.includes('university of hong kong') || uniName.includes('hku')) {
+        targetAdmissionScore = 90;
+      } else if (uniName.includes('香港中文大學') || uniName.includes('chinese university') || uniName.includes('cuhk')) {
+        targetAdmissionScore = 88;
+      } else if (uniName.includes('香港科技大學') || uniName.includes('hong kong university of science') || uniName.includes('hkust')) {
+        targetAdmissionScore = 87;
+      } else if (uniName.includes('香港理工大學') || uniName.includes('polytechnic university') || uniName.includes('polyu')) {
+        targetAdmissionScore = 80;
+      } else if (uniName.includes('香港城市大學') || uniName.includes('city university') || uniName.includes('cityu')) {
+        targetAdmissionScore = 78;
+      } else if (uniName.includes('香港浸會大學') || uniName.includes('baptist university') || uniName.includes('hkbu')) {
+        targetAdmissionScore = 75;
+      } else if (uniName.includes('香港教育大學') || uniName.includes('education university') || uniName.includes('eduhk')) {
+        targetAdmissionScore = 72;
+      } else if (uniName.includes('嶺南大學') || uniName.includes('lingnan university') || uniName.includes('lnu')) {
+        targetAdmissionScore = 70;
+      } else {
+        // 默認分數
+        targetAdmissionScore = 75;
+      }
+    }
+
+    // 使用 localStorage 存儲目標信息
+    const targetData = {
+      target_university_id: university.id,
+      target_major_name: majorName,
+      target_university_name: university.name || university.nameEn || '未知大學',
+      target_admission_score: targetAdmissionScore
+    };
+    
+    localStorage.setItem(`target_${currentUser.id}`, JSON.stringify(targetData));
+
+    // 更新 Supabase profiles 表中的目標分數
+    if (supabase) {
+      try {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ 
+            target_admission_score: targetAdmissionScore,
+            target_university_id: university.id,
+            target_major_name: majorName
+          })
+          .eq('id', currentUser.id);
+
+        if (updateError) {
+          // 如果是字段不存在的错误，只记录警告，不显示错误
+          if (updateError.code === 'PGRST116' || updateError.message?.includes('column') || updateError.message?.includes('field')) {
+            console.warn('目標分數字段不存在於數據庫中，已保存到 localStorage');
+          } else {
+            console.error('更新目標分數失敗：', updateError);
+          }
+          // 不阻止流程繼續，因為已經保存到 localStorage
+        }
+      } catch (error) {
+        // 忽略字段不存在的错误
+        if (error?.code !== 'PGRST116' && !error?.message?.includes('column') && !error?.message?.includes('field')) {
+          console.error('更新目標分數時發生錯誤：', error);
+        }
+      }
+    }
+
+    // 更新當前 profile 中的目標信息
+    if (currentProfile) {
+      currentProfile.target_university_id = university.id;
+      currentProfile.target_major_name = majorName;
+      currentProfile.target_admission_score = targetAdmissionScore;
+    }
+
+    // 關閉模態框
+    closeGoalSelectionModal();
+
+    // 重新載入目標顯示和進度
+    await loadCurrentGoal();
+    await calculateProgress();
+
+    alert('目標設定成功！目標分數：' + targetAdmissionScore);
+
+  } catch (error) {
+    console.error('設定目標失敗：', error);
+    alert('設定目標失敗：' + (error.message || '未知錯誤'));
+  }
+}
+
+// 關閉目標選擇模態框
+function closeGoalSelectionModal() {
+  const modal = document.getElementById('goal-selection-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  
+  // 重置科系選擇區域
+  const majorsSection = document.getElementById('goal-majors-section');
+  if (majorsSection) {
+    majorsSection.style.display = 'none';
+  }
+  
+  const searchInput = document.getElementById('goal-uni-search');
+  if (searchInput) {
+    searchInput.value = '';
+  }
+}
+
+// 設定學術中心相關事件監聽器
+function setupAcademicsListeners() {
+  // 圖片上傳
+  const imageUpload = document.getElementById('schedule-image-upload');
+  if (imageUpload) {
+    imageUpload.addEventListener('change', handleImageUpload);
+  }
+
+  // 一鍵清空考程表按鈕
+  const clearAllBtn = document.getElementById('clear-all-exams-btn');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', clearAllExamSchedules);
+  }
+
+  // 成績輸入表單（如果還存在）
+  const scoreForm = document.getElementById('score-input-form');
+  if (scoreForm) {
+    scoreForm.addEventListener('submit', handleScoreInputSubmit);
+  }
+
+  // 分數輸入模態框的保存按鈕
+  const saveScoreBtn = document.getElementById('save-score-btn');
+  if (saveScoreBtn) {
+    saveScoreBtn.addEventListener('click', handleScoreModalSave);
+  }
+
+  // 目標選擇按鈕
+  const selectGoalBtn = document.getElementById('select-goal-btn');
+  if (selectGoalBtn) {
+    selectGoalBtn.addEventListener('click', openGoalSelectionModal);
+  }
+
+  // 關閉模態框
+  const closeModalBtn = document.getElementById('close-goal-modal');
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', closeGoalSelectionModal);
+  }
+
+  // 點擊模態框外部關閉
+  const modal = document.getElementById('goal-selection-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeGoalSelectionModal();
+      }
+    });
+  }
+}
+
 // 將函式暴露到全域，供 HTML 中的 onclick 使用
 window.deleteResource = deleteResource;
 window.confirmAppointment = confirmAppointment;
 window.navigateToView = navigateToView;
 window.sendMessage = handleSendMessage;
 window.loadUniversities = loadUniversities;
+window.loadAcademicsData = loadAcademicsData;
+window.deleteExamSchedule = deleteExamSchedule;
+window.deleteExamScore = deleteExamScore;
+window.openScoreModal = openScoreModal;
 

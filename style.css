@@ -790,3 +790,97 @@ body {
   animation: spin 1s linear infinite;
 }
 
+/* ========== 考程表卡片樣式 ========== */
+.exam-schedule-card {
+  transition: all 0.2s ease;
+  border-left-width: 4px;
+}
+
+.exam-schedule-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.exam-schedule-card:active {
+  transform: translateX(2px);
+}
+
+/* 考程表卡片內的按鈕樣式 */
+.exam-schedule-card button {
+  transition: all 0.2s ease;
+}
+
+.exam-schedule-card button:hover {
+  transform: scale(1.05);
+}
+
+/* ========== 考程表時間軸樣式 ========== */
+.exam-timeline {
+  position: relative;
+}
+
+.exam-schedule-item {
+  position: relative;
+  transition: all 0.3s ease;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.exam-schedule-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* 過期考試的視覺提示 */
+.exam-schedule-item.opacity-60 {
+  position: relative;
+}
+
+.exam-schedule-item.opacity-60::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.05) 100%);
+  pointer-events: none;
+  border-radius: 8px;
+}
+
+/* 狀態標籤動畫 */
+.exam-schedule-item .status-badge {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  .exam-schedule-item {
+    padding: 12px !important;
+  }
+  
+  .exam-schedule-item .flex {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+

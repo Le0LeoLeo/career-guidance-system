@@ -8,6 +8,9 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- PDF.js for PDF to image conversion -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  
   <!-- Bootstrap 5 CSS (保留用於現有視圖) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   
@@ -164,6 +167,18 @@
               <h3 class="text-lg font-semibold text-gray-800 ml-3">大學資料庫</h3>
             </div>
             <p class="text-gray-600 text-sm">搜尋並瀏覽各大學資訊</p>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer" onclick="showView('academics-view'); loadAcademicsData();" id="nav-academics">
+            <div class="flex items-center mb-4">
+              <div class="bg-orange-100 rounded-lg p-3">
+                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-800 ml-3">學術中心</h3>
+            </div>
+            <p class="text-gray-600 text-sm">智能考程表與目標追蹤</p>
           </div>
         </div>
       </div>
@@ -374,6 +389,252 @@
             </svg>
             <p class="text-gray-600 text-lg">目前尚無預約</p>
             <p class="text-gray-500 text-sm mt-2">請使用上方表單預約導師</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 學術中心視圖 ========== -->
+    <div id="academics-view" class="view-container" style="display: none;">
+      <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">學術中心</h1>
+          <p class="text-gray-600">智能考程表與目標追蹤系統</p>
+        </div>
+
+        <!-- 區塊 A：設定目標 (Goal Setting) -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div class="flex items-center mb-4">
+            <div class="bg-blue-100 rounded-lg p-3 mr-3">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800">設定目標</h2>
+          </div>
+          
+          <div id="current-goal-display" class="mb-4 p-4 bg-gray-50 rounded-lg">
+            <p class="text-gray-600 mb-2">目前目標：</p>
+            <p id="goal-text" class="text-lg font-semibold text-gray-800">尚未設定目標</p>
+          </div>
+          
+          <button 
+            id="select-goal-btn" 
+            class="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          >
+            選擇/變更目標
+          </button>
+        </div>
+
+        <!-- 區塊 B：我的考程表 (My Schedule) -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <div class="bg-green-100 rounded-lg p-3 mr-3">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <h2 class="text-2xl font-bold text-gray-800">我的考程表</h2>
+            </div>
+            <button 
+              id="clear-all-exams-btn" 
+              class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors duration-200 flex items-center gap-2 text-sm font-medium"
+              style="display: none;"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+              一鍵清空
+            </button>
+          </div>
+          
+          <div class="mb-4">
+            <label for="stream-select" class="block text-sm font-medium text-gray-700 mb-2">請選擇您的班別組別</label>
+            <select 
+              id="stream-select" 
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 mb-4"
+            >
+              <option value="general">不分組 (初中/高一)</option>
+              <option value="science">理組 (物理、化學、生物)</option>
+              <option value="arts">文組 (歷史、地理)</option>
+            </select>
+            
+            <label for="schedule-image-upload" class="block text-sm font-medium text-gray-700 mb-2">上傳考程表圖片或PDF</label>
+            <input 
+              type="file" 
+              id="schedule-image-upload" 
+              accept="image/*,.pdf"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            />
+            <p class="text-sm text-gray-500 mt-1">支援 JPG、PNG 圖片或 PDF 文件，系統將自動識別考試時間</p>
+          </div>
+          
+          <div id="schedule-loading" class="text-center py-4" style="display: none;">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+            <p class="mt-2 text-gray-600">正在處理圖片...</p>
+          </div>
+          
+          <div id="exam-schedule-list" class="space-y-3" style="display: none;">
+            <!-- 考程表項目將動態插入這裡 -->
+          </div>
+          
+          <div id="exams-empty" class="text-center py-8">
+            <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <p class="text-gray-600 text-lg font-medium">目前尚無考程表</p>
+            <p class="text-gray-500 text-sm mt-2">請上傳考程表圖片或 PDF 以開始使用</p>
+          </div>
+        </div>
+
+        <!-- 區塊 C：成績與進度 (Progress Tracker) -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center mb-4">
+            <div class="bg-purple-100 rounded-lg p-3 mr-3">
+              <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800">成績與進度</h2>
+          </div>
+          
+          <!-- 進度儀表板 -->
+          <div id="progress-dashboard" class="mb-6 p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">目標達成進度</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div class="bg-white rounded-lg p-4 shadow-sm">
+                <p class="text-sm text-gray-600 mb-1">目前加權總分</p>
+                <p id="current-weighted-score" class="text-2xl font-bold text-blue-600">-</p>
+              </div>
+              <div class="bg-white rounded-lg p-4 shadow-sm">
+                <p class="text-sm text-gray-600 mb-1">目標分數</p>
+                <p id="target-score-display" class="text-2xl font-bold text-purple-600">-</p>
+              </div>
+              <div class="bg-white rounded-lg p-4 shadow-sm">
+                <p class="text-sm text-gray-600 mb-1">差距</p>
+                <p id="score-gap" class="text-2xl font-bold text-red-600">-</p>
+              </div>
+            </div>
+            <div id="progress-message" class="text-center p-4 bg-white rounded-lg shadow-sm">
+              <p class="text-gray-600">請先設定目標並輸入成績以查看進度</p>
+            </div>
+          </div>
+          
+          <!-- 成績列表 -->
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">成績記錄</h3>
+            <div id="scores-list" class="space-y-2">
+              <!-- 成績項目將動態插入這裡 -->
+            </div>
+            <div id="scores-empty" class="text-center py-8" style="display: none;">
+              <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              <p class="text-gray-600 text-lg">目前尚無成績記錄</p>
+              <p class="text-gray-500 text-sm mt-2">請使用上方表單輸入成績</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 目標選擇模態框 -->
+    <div id="goal-selection-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50" style="display: none;">
+      <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+              <h3 class="text-2xl font-bold text-gray-800">選擇目標大學與科系</h3>
+              <button id="close-goal-modal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="p-6">
+            <div class="mb-4">
+              <label for="goal-uni-search" class="block text-sm font-medium text-gray-700 mb-2">搜尋大學</label>
+              <input 
+                type="text" 
+                id="goal-uni-search" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="輸入大學名稱..."
+              />
+            </div>
+            <div id="goal-universities-list" class="space-y-2 max-h-96 overflow-y-auto">
+              <!-- 大學列表將動態插入這裡 -->
+            </div>
+            <div id="goal-majors-section" class="mt-6" style="display: none;">
+              <h4 class="text-lg font-semibold text-gray-800 mb-3">選擇科系</h4>
+              <div id="goal-majors-list" class="space-y-2">
+                <!-- 科系列表將動態插入這裡 -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分數輸入模態框 -->
+    <div class="modal fade" id="scoreModal" tabindex="-1" aria-labelledby="scoreModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="scoreModalLabel">填寫分數</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="score-modal-form">
+              <div class="mb-3">
+                <label for="modal-exam-subject" class="form-label">科目</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="modal-exam-subject" 
+                  readonly
+                />
+              </div>
+              <div class="mb-3">
+                <label for="modal-exam-date" class="form-label">考試日期</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="modal-exam-date" 
+                  readonly
+                />
+              </div>
+              <div class="mb-3">
+                <label for="modal-score-obtained" class="form-label">得分</label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  id="modal-score-obtained" 
+                  step="0.1"
+                  min="0"
+                  placeholder="例如：85"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="modal-score-full-marks" class="form-label">滿分</label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  id="modal-score-full-marks" 
+                  step="0.1"
+                  min="1"
+                  value="100"
+                  required
+                />
+              </div>
+              <input type="hidden" id="modal-schedule-id" />
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" id="save-score-btn">儲存成績</button>
           </div>
         </div>
       </div>

@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>添加大學科系工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      padding: 30px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 2em;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .section h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.5em;
+    }
+    
+    .button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+      transition: all 0.3s;
+    }
+    
+    .button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .button.danger {
+      background: #e74c3c;
+    }
+    
+    .button.danger:hover {
+      background: #c0392b;
+    }
+    
+    .button.success {
+      background: #27ae60;
+    }
+    
+    .button.success:hover {
+      background: #229954;
+    }
+    
+    .university-list {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      background: white;
+    }
+    
+    .university-item {
+      padding: 12px;
+      margin: 8px 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .university-item.no-majors {
+      border-left: 4px solid #e74c3c;
+      background: #fff5f5;
+    }
+    
+    .university-item.has-majors {
+      border-left: 4px solid #27ae60;
+    }
+    
+    .university-info {
+      flex: 1;
+    }
+    
+    .university-name {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    
+    .university-details {
+      font-size: 0.9em;
+      color: #666;
+    }
+    
+    .majors-count {
+      margin-right: 15px;
+      padding: 4px 12px;
+      background: #667eea;
+      color: white;
+      border-radius: 12px;
+      font-size: 0.85em;
+    }
+    
+    .majors-count.zero {
+      background: #e74c3c;
+    }
+    
+    .log {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+    
+    .log-entry {
+      margin: 5px 0;
+      padding: 3px 0;
+    }
+    
+    .log-entry.success {
+      color: #4ec9b0;
+    }
+    
+    .log-entry.error {
+      color: #f48771;
+    }
+    
+    .log-entry.info {
+      color: #569cd6;
+    }
+    
+    .log-entry.warning {
+      color: #dcdcaa;
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 2.5em;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 5px;
+    }
+    
+    .stat-label {
+      color: #666;
+      font-size: 0.9em;
+    }
+    
+    .common-majors {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .major-tag {
+      background: #e8eaf6;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎓 添加大學科系工具（AI 智能判定）</h1>
+    <p class="subtitle">使用文心 AI 根據學校實際情況判定並添加科系</p>
+    
+    <div class="section">
+      <h2>📊 統計資訊</h2>
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div class="stat-number" id="total-universities">-</div>
+          <div class="stat-label">總大學數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="no-majors-count">-</div>
+          <div class="stat-label">缺少科系</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="has-majors-count">-</div>
+          <div class="stat-label">已有科系</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h2>🔍 檢查大學科系</h2>
+      <button class="button" onclick="checkUniversities()">檢查所有大學</button>
+      <button class="button success" onclick="addMajorsToAll()">為所有缺少科系的大學添加科系</button>
+      <div id="university-list" class="university-list" style="display: none; margin-top: 20px;"></div>
+    </div>
+    
+    <div class="section">
+      <h2>📊 搜索大學錄取分數</h2>
+      <p style="color: #666; margin-bottom: 15px;">使用文心 Web Search 搜索大學各科系的錄取分數，並按年份保存到 Firebase</p>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; color: #333; font-weight: bold;">選擇年份：</label>
+        <select id="search-year" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; margin-right: 10px;">
+          <option value="2024">2024年</option>
+          <option value="2023">2023年</option>
+          <option value="2025">2025年</option>
+        </select>
+        <button class="button" onclick="searchAdmissionScoresForAll()">搜索所有大學的錄取分數</button>
+        <button class="button success" onclick="searchAdmissionScoresForSelected()">搜索選中大學的錄取分數</button>
+      </div>
+      <div id="admission-scores-list" class="university-list" style="display: none; margin-top: 20px;"></div>
+    </div>
+    
+    <div class="section">
+      <h2>📋 查看和管理錄取分數</h2>
+      <p style="color: #666; margin-bottom: 15px;">查看、編輯和管理已保存的錄取分數數據</p>
+      <div style="margin-bottom: 15px;">
+        <button class="button" onclick="loadAllAdmissionScores()">載入所有錄取分數</button>
+        <button class="button" onclick="viewAdmissionScoresByYear()">按年份查看</button>
+        <button class="button" onclick="viewAdmissionScoresByUniversity()">按大學查看</button>
+        <button class="button success" onclick="exportAdmissionScores()">導出為 JSON</button>
+      </div>
+      <div id="admission-scores-view" style="display: none; margin-top: 20px;">
+        <div id="admission-scores-content" class="university-list"></div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h2>🤖 AI 判定說明</h2>
+      <p>本工具使用文心 AI 根據以下學校資訊智能判定科系：</p>
+      <ul style="margin-left: 20px; margin-top: 10px; color: #666;">
+        <li>學校名稱（中文/英文）</li>
+        <li>學校類型（公立/私立）</li>
+        <li>學校所在地區</li>
+        <li>學校特色與定位</li>
+      </ul>
+      <p style="margin-top: 15px; color: #667eea; font-weight: bold;">✨ AI 會根據每所學校的實際情況生成最適合的科系列表</p>
+    </div>
+    
+    <div class="section">
+      <h2>📋 操作日誌</h2>
+      <div class="log" id="log"></div>
+      <button class="button" onclick="clearLog()">清除日誌</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    // Firebase 配置
+    const firebaseConfig = {
+      apiKey: "AIzaSyA6QVAAIBGpnt8QBAScj3gMQmnQijqX_vk",
+      authDomain: "cpaapp-8c4d6.firebaseapp.com",
+      projectId: "cpaapp-8c4d6",
+      storageBucket: "cpaapp-8c4d6.firebasestorage.app",
+      messagingSenderId: "182638554959",
+      appId: "1:182638554959:web:3e5e126b379c6c68c1df3a",
+      measurementId: "G-ME38DET581"
+    };
+
+    // Supabase 配置
+    const SUPABASE_URL = 'https://naqyczuuariosniudbsr.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5hcXljenV1YXJpb3NuaXVkYnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NzM2ODQsImV4cCI6MjA4MDM0OTY4NH0.6gLqwj0OBNHatfoPC_Pm0zANzQLS1KE9xJ2Vf2dQB7s';
+
+    let db = null;
+    let supabase = null;
+    let universities = [];
+
+    // 初始化 Firebase
+    function initFirebase() {
+      try {
+        if (typeof firebase === 'undefined') {
+          log('Firebase SDK 尚未載入', 'error');
+          return false;
+        }
+        
+        const app = firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        log('✅ Firebase 初始化成功', 'success');
+        return true;
+      } catch (error) {
+        log('❌ Firebase 初始化失敗：' + error.message, 'error');
+        return false;
+      }
+    }
+
+    // 初始化 Supabase
+    function initSupabase() {
+      try {
+        if (typeof supabase === 'undefined' || !window.supabase) {
+          log('Supabase SDK 尚未載入', 'error');
+          return false;
+        }
+        
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        log('✅ Supabase 初始化成功', 'success');
+        return true;
+      } catch (error) {
+        log('❌ Supabase 初始化失敗：' + error.message, 'error');
+        return false;
+      }
+    }
+
+    // 使用文心 AI 判定學校科系
+    async function getMajorsFromAI(university) {
+      if (!supabase) {
+        if (!initSupabase()) {
+          throw new Error('Supabase 未初始化');
+        }
+      }
+
+      // 構建提示詞
+      const prompt = `請根據以下大學資訊，判定這所大學應該有哪些科系。請返回 JSON 格式的科系列表，每個科系包含 name（科系名稱）和 admission_score（錄取分數，0-100）兩個欄位。
+
+大學資訊：
+- 名稱：${university.name || '未知'}${university.nameEn ? ` (${university.nameEn})` : ''}
+- 類型：${university.type || '未知'}
+- 地區：${university.city || university.district || '未知'}
+${university.description ? `- 描述：${university.description}` : ''}
+
+請根據這所大學的實際情況（名稱、類型、地區、特色等），生成 15-30 個最適合的科系。科系應該符合該大學的定位和特色。
+
+請只返回 JSON 陣列格式，例如：
+[
+  {"name": "資訊工程學系", "admission_score": 70},
+  {"name": "企業管理學系", "admission_score": 65}
+]
+
+不要包含任何其他文字說明，只返回 JSON 陣列。`;
+
+      log(`🤖 正在使用 AI 判定「${university.name}」的科系...`, 'info');
+
+      try {
+        const { data, error } = await supabase.functions.invoke('ask-ai', {
+          body: {
+            prompt: prompt,
+            history: []
+          }
+        });
+
+        if (error) {
+          throw new Error(`AI 調用失敗：${error.message || JSON.stringify(error)}`);
+        }
+
+        if (!data || !data.response) {
+          throw new Error('AI 未返回有效回應');
+        }
+
+        // 解析 AI 回應
+        let responseText = data.response.trim();
+        
+        // 嘗試提取 JSON（可能包含在 markdown 代碼塊中）
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          responseText = jsonMatch[0];
+        }
+
+        // 解析 JSON
+        const majors = JSON.parse(responseText);
+        
+        if (!Array.isArray(majors)) {
+          throw new Error('AI 返回的格式不是陣列');
+        }
+
+        // 驗證每個科系的格式
+        const validMajors = majors.filter(major => {
+          return major && typeof major === 'object' && 
+                 major.name && typeof major.name === 'string' &&
+                 typeof major.admission_score === 'number';
+        });
+
+        if (validMajors.length === 0) {
+          throw new Error('AI 返回的科系格式不正確');
+        }
+
+        log(`✅ AI 判定完成，共 ${validMajors.length} 個科系`, 'success');
+        return validMajors;
+
+      } catch (error) {
+        log(`❌ AI 判定失敗：${error.message}`, 'error');
+        console.error('AI 判定錯誤詳情：', error);
+        throw error;
+      }
+    }
+
+    // 日誌功能
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const timestamp = new Date().toLocaleTimeString('zh-TW');
+      entry.textContent = `[${timestamp}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    // 檢查ID是否包含中文字符
+    function containsChinese(str) {
+      if (!str) return false;
+      // 檢查是否包含中文字符（包括中文標點符號）
+      return /[\u4e00-\u9fa5\u3400-\u4dbf\uf900-\ufaff]/.test(str);
+    }
+
+    // 檢查所有大學
+    async function checkUniversities() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      log('開始檢查大學資料...', 'info');
+      
+      try {
+        const snapshot = await db.collection('universities').get();
+        universities = [];
+        let skippedCount = 0;
+        
+        snapshot.forEach(doc => {
+          // 跳過中文ID的記錄
+          if (containsChinese(doc.id)) {
+            skippedCount++;
+            return;
+          }
+          
+          const data = doc.data();
+          const majors = data.majors || [];
+          universities.push({
+            id: doc.id,
+            name: data.name || '未知大學',
+            type: data.type || '未知類型',
+            majors: majors,
+            hasMajors: majors.length > 0
+          });
+        });
+
+        if (skippedCount > 0) {
+          log(`⚠️ 已跳過 ${skippedCount} 筆中文ID的記錄`, 'warning');
+        }
+
+        log(`✅ 成功載入 ${universities.length} 筆大學資料`, 'success');
+        
+        updateStats();
+        displayUniversities();
+        
+      } catch (error) {
+        log('❌ 檢查失敗：' + error.message, 'error');
+        console.error(error);
+      }
+    }
+
+    // 更新統計資訊
+    function updateStats() {
+      const total = universities.length;
+      const noMajors = universities.filter(u => !u.hasMajors).length;
+      const hasMajors = universities.filter(u => u.hasMajors).length;
+
+      document.getElementById('total-universities').textContent = total;
+      document.getElementById('no-majors-count').textContent = noMajors;
+      document.getElementById('has-majors-count').textContent = hasMajors;
+    }
+
+    // 顯示大學列表
+    function displayUniversities() {
+      const listDiv = document.getElementById('university-list');
+      listDiv.style.display = 'block';
+      listDiv.innerHTML = '';
+
+      universities.forEach(uni => {
+        const item = document.createElement('div');
+        item.className = `university-item ${uni.hasMajors ? 'has-majors' : 'no-majors'}`;
+        
+        item.innerHTML = `
+          <div class="university-info">
+            <div class="university-name">${uni.name}</div>
+            <div class="university-details">類型: ${uni.type} | ID: ${uni.id}</div>
+          </div>
+          <div style="display: flex; align-items: center;">
+            <span class="majors-count ${uni.hasMajors ? '' : 'zero'}">
+              ${uni.majors.length} 個科系
+            </span>
+            ${!uni.hasMajors ? `<button class="button" onclick="addMajorsToUniversity('${uni.id}', '${uni.name.replace(/'/g, "\\'")}')">添加科系</button>` : ''}
+          </div>
+        `;
+        
+        listDiv.appendChild(item);
+      });
+    }
+
+    // 為單一大學添加科系（使用 AI）
+    async function addMajorsToUniversity(universityId, universityName) {
+      if (!db) {
+        log('Firebase 尚未初始化', 'error');
+        return;
+      }
+
+      // 檢查ID是否包含中文
+      if (containsChinese(universityId)) {
+        log(`⚠️ 跳過中文ID的記錄：${universityId}`, 'warning');
+        return;
+      }
+
+      // 獲取完整的大學資訊
+      const university = universities.find(u => u.id === universityId);
+      if (!university) {
+        log(`找不到大學：${universityName}`, 'error');
+        return;
+      }
+
+      // 從 Firebase 獲取完整資訊
+      try {
+        const doc = await db.collection('universities').doc(universityId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          university.name = data.name || university.name;
+          university.nameEn = data.nameEn || '';
+          university.type = data.type || university.type;
+          university.city = data.city || '';
+          university.district = data.district || '';
+          university.description = data.description || '';
+        }
+      } catch (error) {
+        log(`⚠️ 無法獲取完整大學資訊：${error.message}`, 'warning');
+      }
+
+      log(`開始為「${universityName}」使用 AI 判定科系...`, 'info');
+
+      try {
+        // 使用 AI 判定科系
+        const majors = await getMajorsFromAI(university);
+
+        // 保存到 Firebase
+        await db.collection('universities').doc(universityId).update({
+          majors: majors
+        });
+
+        log(`✅ 成功為「${universityName}」添加 ${majors.length} 個科系`, 'success');
+        
+        // 重新檢查
+        await checkUniversities();
+        
+      } catch (error) {
+        log(`❌ 為「${universityName}」添加科系失敗：${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    // 為所有缺少科系的大學添加科系（使用 AI）
+    async function addMajorsToAll() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      if (!supabase && !initSupabase()) {
+        log('❌ Supabase 初始化失敗，無法使用 AI 功能', 'error');
+        return;
+      }
+
+      // 先檢查
+      if (universities.length === 0) {
+        await checkUniversities();
+      }
+
+      const noMajorsUnis = universities.filter(u => !u.hasMajors);
+      
+      if (noMajorsUnis.length === 0) {
+        log('✅ 所有大學都已有科系資料', 'success');
+        return;
+      }
+
+      const confirmMsg = `確定要使用 AI 為 ${noMajorsUnis.length} 所大學智能判定並添加科系嗎？\n\n這可能需要一些時間，因為每所大學都需要 AI 分析。`;
+      if (!confirm(confirmMsg)) {
+        return;
+      }
+
+      log(`開始使用 AI 為 ${noMajorsUnis.length} 所大學判定科系...`, 'info');
+      log('⏳ 這可能需要幾分鐘時間，請耐心等待...', 'warning');
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < noMajorsUnis.length; i++) {
+        const uni = noMajorsUnis[i];
+        
+        try {
+          // 獲取完整的大學資訊
+          const doc = await db.collection('universities').doc(uni.id).get();
+          if (doc.exists) {
+            const data = doc.data();
+            uni.name = data.name || uni.name;
+            uni.nameEn = data.nameEn || '';
+            uni.type = data.type || uni.type;
+            uni.city = data.city || '';
+            uni.district = data.district || '';
+            uni.description = data.description || '';
+          }
+
+          log(`[${i + 1}/${noMajorsUnis.length}] 正在處理：${uni.name}...`, 'info');
+
+          // 使用 AI 判定科系
+          const majors = await getMajorsFromAI(uni);
+
+          // 保存到 Firebase
+          await db.collection('universities').doc(uni.id).update({
+            majors: majors
+          });
+
+          log(`✅ ${uni.name} - 成功添加 ${majors.length} 個科系`, 'success');
+          successCount++;
+
+          // 添加延遲，避免 API 調用過於頻繁
+          if (i < noMajorsUnis.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+        } catch (error) {
+          log(`❌ ${uni.name} - 添加失敗：${error.message}`, 'error');
+          failCount++;
+        }
+      }
+
+      log(`\n📊 完成！成功: ${successCount}, 失敗: ${failCount}`, 'info');
+      
+      // 重新檢查
+      await checkUniversities();
+    }
+
+    // 使用文心 Web Search 搜索大學錄取分數
+    async function searchAdmissionScoresWithAI(university, year) {
+      if (!supabase) {
+        if (!initSupabase()) {
+          throw new Error('Supabase 未初始化');
+        }
+      }
+
+      // 構建搜索提示詞
+      const searchQuery = `${university.name} ${year}年 錄取分數 各科系`;
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      // 構建科系列表
+      let majorsListText = '';
+      if (university.majors && university.majors.length > 0) {
+        const majorNames = university.majors.map(m => m.name || m).filter(Boolean);
+        majorsListText = `\n\n該大學的科系列表（請優先搜索這些科系的錄取分數）：\n${majorNames.map((name, idx) => `${idx + 1}. ${name}`).join('\n')}\n\n請重點搜索以上科系的錄取分數。如果網絡搜索結果中包含其他科系的錄取分數，也可以一併包含。`;
+      } else {
+        majorsListText = `\n\n注意：該大學尚未有完整的科系列表。請搜索該大學在 ${year} 年所有常見科系的錄取分數，包括但不限於：\n- 該大學類型（${university.type || '未知'}）常見的科系\n- 該大學所在地區常見的科系\n- 該大學的特色科系\n\n請盡可能搜索到更多科系的錄取分數。`;
+      }
+
+      const prompt = `請使用網絡搜索功能查找以下大學在指定年份的錄取分數資訊。請搜索最新的、準確的錄取分數數據。
+
+大學資訊：
+- 名稱：${university.name}${university.nameEn ? ` (${university.nameEn})` : ''}
+- 類型：${university.type || '未知'}
+- 地區：${university.city || university.district || '未知'}
+- 目標年份：${year}年${majorsListText}
+
+請搜索該大學在 ${year} 年各科系的錄取分數資訊，包括：
+1. 最低錄取分數（min_score）
+2. 平均錄取分數（avg_score，如果有）
+3. 最高錄取分數（max_score，如果有）
+
+請從可靠的官方來源或教育網站獲取數據，並返回 JSON 格式的結果。
+
+返回格式必須嚴格遵循以下 JSON 結構：
+{
+  "year": ${year},
+  "university": "${university.name}",
+  "scores": [
+    {
+      "major": "科系完整名稱",
+      "min_score": 數字（最低錄取分數，必填）,
+      "avg_score": 數字或null（平均錄取分數，可選）,
+      "max_score": 數字或null（最高錄取分數，可選）
+    }
+  ],
+  "source": "數據來源網址或說明",
+  "search_date": "${currentDate}"
+}
+
+重要要求：
+1. 只返回有效的 JSON 格式，不要包含任何其他文字
+2. 如果找不到具體分數，scores 應為空陣列 []
+3. min_score 必須是數字，不能為 null
+4. 請確保科系名稱準確完整
+5. 如果搜索到多個科系，請全部包含在 scores 陣列中
+
+請開始搜索並返回結果。`;
+
+      log(`🔍 正在搜索「${university.name}」${year}年的錄取分數...`, 'info');
+
+      try {
+        // 調用文心 AI（使用 web_search 功能）
+        const { data, error } = await supabase.functions.invoke('ask-ai', {
+          body: {
+            prompt: prompt,
+            history: [],
+            use_web_search: true  // 啟用 Web Search
+          }
+        });
+
+        if (error) {
+          throw new Error(`搜索失敗：${error.message || JSON.stringify(error)}`);
+        }
+
+        if (!data || !data.response) {
+          throw new Error('AI 未返回有效回應');
+        }
+
+        // 解析 AI 回應
+        let responseText = data.response.trim();
+        
+        // 記錄原始回應（用於調試）
+        console.log('AI 原始回應：', responseText);
+        
+        // 嘗試提取 JSON（可能包含在 markdown 代碼塊中）
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          responseText = jsonMatch[0];
+        } else {
+          // 如果沒有找到 JSON，嘗試查找代碼塊
+          const codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+          if (codeBlockMatch) {
+            responseText = codeBlockMatch[1];
+          }
+        }
+
+        // 解析 JSON
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          log(`⚠️ JSON 解析失敗，嘗試清理格式...`, 'warning');
+          console.error('解析錯誤：', parseError);
+          console.error('嘗試解析的文字：', responseText);
+          throw new Error(`無法解析 AI 回應為 JSON：${parseError.message}`);
+        }
+        
+        if (!result || !result.scores || !Array.isArray(result.scores)) {
+          log(`⚠️ AI 返回格式：`, 'warning');
+          console.log('AI 返回的完整結果：', result);
+          throw new Error('AI 返回的格式不正確：缺少 scores 陣列');
+        }
+
+        if (result.scores.length === 0) {
+          log(`⚠️ 搜索完成，但未找到任何科系的錄取分數`, 'warning');
+          log(`💡 可能原因：1) ${year}年的錄取分數尚未公布 2) 網絡搜索未找到相關數據 3) 該大學可能沒有公開錄取分數`, 'info');
+        } else {
+          log(`✅ 搜索完成，找到 ${result.scores.length} 個科系的錄取分數`, 'success');
+        }
+        
+        return result;
+
+      } catch (error) {
+        log(`❌ 搜索失敗：${error.message}`, 'error');
+        console.error('搜索錯誤詳情：', error);
+        throw error;
+      }
+    }
+
+    // 保存錄取分數到 Firebase
+    async function saveAdmissionScoresToFirebase(universityId, year, scoresData) {
+      if (!db) {
+        throw new Error('Firebase 尚未初始化');
+      }
+
+      try {
+        const universityRef = db.collection('universities').doc(universityId);
+        const universityDoc = await universityRef.get();
+
+        if (!universityDoc.exists) {
+          throw new Error('大學文檔不存在');
+        }
+
+        // 獲取現有的 admission_scores 數據
+        const currentData = universityDoc.data();
+        let admissionScores = currentData.admission_scores || {};
+
+        // 更新指定年份的錄取分數
+        admissionScores[year] = {
+          year: parseInt(year),
+          scores: scoresData.scores || [],
+          source: scoresData.source || '文心 Web Search',
+          search_date: scoresData.search_date || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        // 保存到 Firebase
+        await universityRef.update({
+          admission_scores: admissionScores
+        });
+
+        log(`✅ 已保存 ${year} 年的錄取分數到 Firebase`, 'success');
+        return true;
+
+      } catch (error) {
+        log(`❌ 保存失敗：${error.message}`, 'error');
+        throw error;
+      }
+    }
+
+    // 為單一大學搜索錄取分數
+    async function searchAdmissionScoresForUniversity(universityId, year) {
+      if (!db) {
+        log('Firebase 尚未初始化', 'error');
+        return;
+      }
+
+      // 檢查ID是否包含中文
+      if (containsChinese(universityId)) {
+        log(`⚠️ 跳過中文ID的記錄：${universityId}`, 'warning');
+        return;
+      }
+
+      const university = universities.find(u => u.id === universityId);
+      if (!university) {
+        log(`找不到大學 ID: ${universityId}`, 'error');
+        return;
+      }
+
+      // 從 Firebase 獲取完整資訊
+      try {
+        const doc = await db.collection('universities').doc(universityId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          university.name = data.name || university.name;
+          university.nameEn = data.nameEn || '';
+          university.type = data.type || university.type;
+          university.city = data.city || '';
+          university.district = data.district || '';
+          university.majors = data.majors || [];
+          university.description = data.description || '';
+        }
+      } catch (error) {
+        log(`⚠️ 無法獲取完整大學資訊：${error.message}`, 'warning');
+      }
+
+      // 檢查是否有科系數據
+      if (!university.majors || university.majors.length === 0) {
+        log(`⚠️ 「${university.name}」尚未有科系數據，將搜索該大學所有常見科系的錄取分數`, 'warning');
+      } else {
+        log(`📋 「${university.name}」共有 ${university.majors.length} 個科系，將搜索這些科系的錄取分數`, 'info');
+      }
+
+      log(`開始為「${university.name}」搜索 ${year} 年的錄取分數...`, 'info');
+
+      try {
+        // 使用 AI 搜索錄取分數
+        const scoresData = await searchAdmissionScoresWithAI(university, year);
+
+        // 保存到 Firebase
+        await saveAdmissionScoresToFirebase(universityId, year, scoresData);
+
+        log(`✅ 成功為「${university.name}」保存 ${scoresData.scores.length} 個科系的錄取分數`, 'success');
+        
+        return scoresData;
+
+      } catch (error) {
+        log(`❌ 為「${university.name}」搜索錄取分數失敗：${error.message}`, 'error');
+        console.error(error);
+        throw error;
+      }
+    }
+
+    // 搜索所有大學的錄取分數
+    async function searchAdmissionScoresForAll() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      if (!supabase && !initSupabase()) {
+        log('❌ Supabase 初始化失敗，無法使用搜索功能', 'error');
+        return;
+      }
+
+      // 先檢查
+      if (universities.length === 0) {
+        await checkUniversities();
+      }
+
+      const year = document.getElementById('search-year').value;
+      
+      if (!year) {
+        log('❌ 請選擇年份', 'error');
+        return;
+      }
+
+      const confirmMsg = `確定要為所有 ${universities.length} 所大學搜索 ${year} 年的錄取分數嗎？\n\n這可能需要較長時間，因為每所大學都需要搜索。`;
+      if (!confirm(confirmMsg)) {
+        return;
+      }
+
+      log(`開始為所有大學搜索 ${year} 年的錄取分數...`, 'info');
+      log('⏳ 這可能需要較長時間，請耐心等待...', 'warning');
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < universities.length; i++) {
+        const uni = universities[i];
+        
+        try {
+          log(`[${i + 1}/${universities.length}] 正在處理：${uni.name}...`, 'info');
+          
+          // 檢查是否有科系數據
+          if (!uni.majors || uni.majors.length === 0) {
+            log(`⚠️ ${uni.name} 尚未有科系數據，將嘗試搜索該大學所有常見科系`, 'warning');
+          }
+
+          await searchAdmissionScoresForUniversity(uni.id, year);
+          successCount++;
+
+          // 添加延遲，避免 API 調用過於頻繁
+          if (i < universities.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒延遲
+          }
+
+        } catch (error) {
+          log(`❌ ${uni.name} - 搜索失敗：${error.message}`, 'error');
+          failCount++;
+        }
+      }
+
+      log(`\n📊 完成！成功: ${successCount}, 失敗: ${failCount}`, 'info');
+    }
+
+    // 搜索選中大學的錄取分數（需要先實現選擇功能）
+    async function searchAdmissionScoresForSelected() {
+      log('⚠️ 此功能需要先選擇大學，請使用「搜索所有大學的錄取分數」功能', 'warning');
+      // 未來可以擴展為支持選擇特定大學
+    }
+
+    // ========== 查看和管理錄取分數功能 ==========
+    
+    // 載入所有錄取分數
+    async function loadAllAdmissionScores() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      log('開始載入所有錄取分數...', 'info');
+      
+      try {
+        const snapshot = await db.collection('universities').get();
+        const scoresData = [];
+        let skippedCount = 0;
+
+        snapshot.forEach(doc => {
+          // 跳過中文ID的記錄
+          if (containsChinese(doc.id)) {
+            skippedCount++;
+            return;
+          }
+          
+          const data = doc.data();
+          const admissionScores = data.admission_scores || {};
+          
+          // 遍歷所有年份的錄取分數
+          Object.keys(admissionScores).forEach(year => {
+            const yearData = admissionScores[year];
+            if (yearData && yearData.scores && Array.isArray(yearData.scores)) {
+              yearData.scores.forEach(score => {
+                scoresData.push({
+                  universityId: doc.id,
+                  universityName: data.name || '未知大學',
+                  year: year,
+                  major: score.major || '未知科系',
+                  minScore: score.min_score || null,
+                  avgScore: score.avg_score || null,
+                  maxScore: score.max_score || null,
+                  source: yearData.source || '未知來源',
+                  searchDate: yearData.search_date || '未知日期'
+                });
+              });
+            }
+          });
+        });
+
+        if (skippedCount > 0) {
+          log(`⚠️ 已跳過 ${skippedCount} 筆中文ID的記錄`, 'warning');
+        }
+
+        log(`✅ 成功載入 ${scoresData.length} 筆錄取分數數據`, 'success');
+        displayAdmissionScores(scoresData);
+        
+      } catch (error) {
+        log('❌ 載入失敗：' + error.message, 'error');
+        console.error(error);
+      }
+    }
+
+    // 按年份查看錄取分數
+    async function viewAdmissionScoresByYear() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      const year = prompt('請輸入要查看的年份（例如：2024）：');
+      if (!year) return;
+
+      log(`開始載入 ${year} 年的錄取分數...`, 'info');
+      
+      try {
+        const snapshot = await db.collection('universities').get();
+        const scoresData = [];
+        let skippedCount = 0;
+
+        snapshot.forEach(doc => {
+          // 跳過中文ID的記錄
+          if (containsChinese(doc.id)) {
+            skippedCount++;
+            return;
+          }
+          
+          const data = doc.data();
+          const admissionScores = data.admission_scores || {};
+          const yearData = admissionScores[year];
+          
+          if (yearData && yearData.scores && Array.isArray(yearData.scores)) {
+            yearData.scores.forEach(score => {
+              scoresData.push({
+                universityId: doc.id,
+                universityName: data.name || '未知大學',
+                year: year,
+                major: score.major || '未知科系',
+                minScore: score.min_score || null,
+                avgScore: score.avg_score || null,
+                maxScore: score.max_score || null,
+                source: yearData.source || '未知來源',
+                searchDate: yearData.search_date || '未知日期'
+              });
+            });
+          }
+        });
+
+        if (skippedCount > 0) {
+          log(`⚠️ 已跳過 ${skippedCount} 筆中文ID的記錄`, 'warning');
+        }
+
+        if (scoresData.length === 0) {
+          log(`⚠️ ${year} 年沒有找到任何錄取分數數據`, 'warning');
+        } else {
+          log(`✅ 成功載入 ${scoresData.length} 筆 ${year} 年的錄取分數`, 'success');
+        }
+        
+        displayAdmissionScores(scoresData);
+        
+      } catch (error) {
+        log('❌ 載入失敗：' + error.message, 'error');
+        console.error(error);
+      }
+    }
+
+    // 按大學查看錄取分數
+    async function viewAdmissionScoresByUniversity() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      // 先載入大學列表
+      if (universities.length === 0) {
+        await checkUniversities();
+      }
+
+      if (universities.length === 0) {
+        log('❌ 沒有找到任何大學資料', 'error');
+        return;
+      }
+
+      // 創建選擇對話框
+      const universityNames = universities.map(u => u.name).join('\n');
+      const selectedName = prompt(`請輸入要查看的大學名稱：\n\n可用大學：\n${universityNames}`);
+      
+      if (!selectedName) return;
+
+      const university = universities.find(u => u.name === selectedName || u.name.includes(selectedName));
+      
+      if (!university) {
+        log(`❌ 找不到名為「${selectedName}」的大學`, 'error');
+        return;
+      }
+
+      log(`開始載入「${university.name}」的錄取分數...`, 'info');
+      
+      try {
+        const doc = await db.collection('universities').doc(university.id).get();
+        
+        if (!doc.exists) {
+          log(`❌ 找不到大學資料`, 'error');
+          return;
+        }
+
+        const data = doc.data();
+        const admissionScores = data.admission_scores || {};
+        const scoresData = [];
+
+        // 遍歷所有年份
+        Object.keys(admissionScores).forEach(year => {
+          const yearData = admissionScores[year];
+          if (yearData && yearData.scores && Array.isArray(yearData.scores)) {
+            yearData.scores.forEach(score => {
+              scoresData.push({
+                universityId: university.id,
+                universityName: university.name,
+                year: year,
+                major: score.major || '未知科系',
+                minScore: score.min_score || null,
+                avgScore: score.avg_score || null,
+                maxScore: score.max_score || null,
+                source: yearData.source || '未知來源',
+                searchDate: yearData.search_date || '未知日期'
+              });
+            });
+          }
+        });
+
+        if (scoresData.length === 0) {
+          log(`⚠️ 「${university.name}」沒有找到任何錄取分數數據`, 'warning');
+        } else {
+          log(`✅ 成功載入「${university.name}」的 ${scoresData.length} 筆錄取分數`, 'success');
+        }
+        
+        displayAdmissionScores(scoresData);
+        
+      } catch (error) {
+        log('❌ 載入失敗：' + error.message, 'error');
+        console.error(error);
+      }
+    }
+
+    // 顯示錄取分數列表
+    function displayAdmissionScores(scoresData) {
+      const viewDiv = document.getElementById('admission-scores-view');
+      const contentDiv = document.getElementById('admission-scores-content');
+      
+      if (!viewDiv || !contentDiv) return;
+
+      viewDiv.style.display = 'block';
+      contentDiv.innerHTML = '';
+
+      if (scoresData.length === 0) {
+        contentDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">沒有找到任何錄取分數數據</p>';
+        return;
+      }
+
+      // 按大學和年份分組
+      const grouped = {};
+      scoresData.forEach(score => {
+        const key = `${score.universityName}_${score.year}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            universityName: score.universityName,
+            year: score.year,
+            scores: []
+          };
+        }
+        grouped[key].scores.push(score);
+      });
+
+      // 顯示分組後的數據
+      Object.values(grouped).forEach(group => {
+        const groupDiv = document.createElement('div');
+        groupDiv.style.cssText = 'margin-bottom: 20px; padding: 15px; background: white; border: 1px solid #e0e0e0; border-radius: 8px;';
+        
+        groupDiv.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #667eea;">
+            <h3 style="margin: 0; color: #333; font-size: 1.2em;">${group.universityName}</h3>
+            <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.9em;">${group.year}年</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
+        `;
+
+        group.scores.forEach(score => {
+          const scoreDiv = document.createElement('div');
+          scoreDiv.style.cssText = 'padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #667eea;';
+          
+          let scoreText = `<strong>${score.major}</strong><br>`;
+          if (score.minScore !== null) {
+            scoreText += `最低分：${score.minScore}`;
+          }
+          if (score.avgScore !== null) {
+            scoreText += scoreText.includes('最低分') ? ` | 平均分：${score.avgScore}` : `平均分：${score.avgScore}`;
+          }
+          if (score.maxScore !== null) {
+            scoreText += scoreText.includes('分') ? ` | 最高分：${score.maxScore}` : `最高分：${score.maxScore}`;
+          }
+          if (!scoreText.includes('分')) {
+            scoreText += '暫無分數數據';
+          }
+          
+          scoreDiv.innerHTML = scoreText;
+          groupDiv.querySelector('div:last-child').appendChild(scoreDiv);
+        });
+
+        groupDiv.innerHTML += '</div>';
+        contentDiv.appendChild(groupDiv);
+      });
+
+      log(`✅ 已顯示 ${scoresData.length} 筆錄取分數數據`, 'success');
+    }
+
+    // 導出錄取分數為 JSON
+    async function exportAdmissionScores() {
+      if (!db && !initFirebase()) {
+        return;
+      }
+
+      log('開始導出錄取分數數據...', 'info');
+      
+      try {
+        const snapshot = await db.collection('universities').get();
+        const exportData = {
+          export_date: new Date().toISOString(),
+          universities: []
+        };
+        let skippedCount = 0;
+
+        snapshot.forEach(doc => {
+          // 跳過中文ID的記錄
+          if (containsChinese(doc.id)) {
+            skippedCount++;
+            return;
+          }
+          
+          const data = doc.data();
+          const admissionScores = data.admission_scores || {};
+          
+          if (Object.keys(admissionScores).length > 0) {
+            exportData.universities.push({
+              id: doc.id,
+              name: data.name || '未知大學',
+              nameEn: data.nameEn || '',
+              type: data.type || '',
+              city: data.city || '',
+              admission_scores: admissionScores
+            });
+          }
+        });
+
+        if (skippedCount > 0) {
+          log(`⚠️ 已跳過 ${skippedCount} 筆中文ID的記錄`, 'warning');
+        }
+
+        // 創建下載鏈接
+        const jsonStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `admission_scores_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        log(`✅ 成功導出 ${exportData.universities.length} 所大學的錄取分數數據`, 'success');
+        
+      } catch (error) {
+        log('❌ 導出失敗：' + error.message, 'error');
+        console.error(error);
+      }
+    }
+
+    // 頁面載入時初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      if (initFirebase()) {
+        log('✅ Firebase 已初始化', 'success');
+      }
+      if (initSupabase()) {
+        log('✅ Supabase 已初始化', 'success');
+      }
+      log('🎉 工具已準備就緒，請點擊「檢查所有大學」開始', 'info');
+      log('💡 提示：本工具使用 AI 智能判定，每所大學的科系都是根據實際情況生成的', 'info');
+      log('💡 提示：錄取分數搜索功能使用文心 Web Search，會按年份保存到 Firebase', 'info');
+    });
+  </script>
+</body>
+</html>

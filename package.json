@@ -8,7 +8,11 @@
     "test:watch": "vitest watch",
     "test:ui": "vitest --ui",
     "dev": "python -m http.server 8000",
-    "test:auto": "powershell -ExecutionPolicy Bypass -File .\\watch-tests.ps1"
+    "test:auto": "powershell -ExecutionPolicy Bypass -File .\\watch-tests.ps1",
+    "seed": "node admin-seed.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
     "vitest": "^1.2.0",

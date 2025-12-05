@@ -29,3 +29,6 @@ npm-debug.log*
 # 臨時文件
 *.tmp
 .cache/
+
+# Firebase 服務賬號密鑰
+serviceAccountKey.json
