@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>校園升學與職涯助手</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif; margin: 24px; line-height: 1.5; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    button { padding: 10px 14px; cursor: pointer; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin-top: 14px; }
+    .muted { color: #666; font-size: 13px; }
+    .options { display: grid; gap: 10px; margin-top: 12px; }
+    .opt { text-align: left; width: 100%; border: 1px solid #ccc; border-radius: 10px; padding: 12px; background: #fff; }
+    .opt:hover { background: #f7f7f7; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #d7e1ff; padding: 12px; border-radius: 10px; overflow:auto; }
+    input[type="text"] { padding: 10px; min-width: 280px; }
+  </style>
+</head>
+<body>
+  <h1>校園升學與職涯助手</h1>
+
+  <div class="card">
+    <div class="row">
+      <button id="btnLogin">Google 登入</button>
+      <button id="btnLogout">登出</button>
+      <span class="muted" id="authStatus">未登入</span>
+    </div>
+    <div class="muted" style="margin-top:10px;">
+      前端只負責登入拿到 access_token，所有權限驗證/AI 出題都在 Netlify Functions。
+    </div>
+  </div>
+
+  <div class="card" id="quizCard" style="display:none;">
+    <div class="row" style="justify-content: space-between;">
+      <div>
+        <div class="muted">Stage: <span id="stage"></span> ／ Confidence: <span id="conf"></span></div>
+      </div>
+      <button id="btnNext">取得下一題</button>
+    </div>
+
+    <h2 id="qPrompt" style="margin-top:10px;"></h2>
+    <div class="options" id="qOptions"></div>
+
+    <div style="margin-top: 10px;">
+      <div class="muted">可選填補充（不影響選項權重，僅作為上下文）：</div>
+      <input id="userText" type="text" placeholder="例如：我通常會..." />
+    </div>
+
+    <div style="margin-top: 12px;">
+      <div class="muted">Debug state（前端僅顯示 server 回傳結果）：</div>
+      <pre id="debug"></pre>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const elAuthStatus = document.getElementById("authStatus");
+    const quizCard = document.getElementById("quizCard");
+    const elStage = document.getElementById("stage");
+    const elConf = document.getElementById("conf");
+    const elPrompt = document.getElementById("qPrompt");
+    const elOptions = document.getElementById("qOptions");
+    const elDebug = document.getElementById("debug");
+    const elUserText = document.getElementById("userText");
+
+    let lastQuestion = null;
+
+    async function getAccessToken() {
+      const { data } = await sb.auth.getSession();
+      return data?.session?.access_token || null;
+    }
+
+    async function verifyGate() {
+      const token = await getAccessToken();
+      if (!token) return { ok: false, error: "Not logged in" };
+
+      const res = await fetch("/.netlify/functions/auth-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data?.error || "verify failed", details: data };
+      return data;
+    }
+
+    function renderState(state) {
+      elStage.textContent = state?.current_stage || "-";
+      elConf.textContent = (state?.confidence_score ?? 0).toFixed(2);
+      elDebug.textContent = JSON.stringify(state, null, 2);
+    }
+
+    function renderQuestion(q) {
+      lastQuestion = q;
+      elPrompt.textContent = q.prompt;
+      elOptions.innerHTML = "";
+      q.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "opt";
+        btn.textContent = `${idx + 1}. ${opt.text}`;
+        btn.onclick = () => submitAnswer(idx, opt);
+        elOptions.appendChild(btn);
+      });
+    }
+
+    async function fetchNextQuestion() {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not logged in");
+
+      const res = await fetch("/.netlify/functions/assessment-next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({}),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed");
+      if (data.done) {
+        renderState(data.state);
+        elPrompt.textContent = "問卷已收斂完成。";
+        elOptions.innerHTML = "";
+        return;
+      }
+      renderState(data.state);
+      renderQuestion(data.question);
+    }
+
+    async function submitAnswer(selectedIndex, selectedOption) {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not logged in");
+      if (!lastQuestion) throw new Error("No question");
+
+      const payload = {
+        answer: {
+          question_id: lastQuestion.question_id,
+          selected_index: selectedIndex,
+          selected_option: selectedOption,
+          user_text: elUserText.value || ""
+        }
+      };
+
+      const res = await fetch("/.netlify/functions/assessment-next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed");
+      elUserText.value = "";
+
+      if (data.done) {
+        renderState(data.state);
+        elPrompt.textContent = "問卷已收斂完成。";
+        elOptions.innerHTML = "";
+        return;
+      }
+
+      renderState(data.state);
+      renderQuestion(data.question);
+    }
+
+    document.getElementById("btnLogin").onclick = async () => {
+      await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+    };
+
+    document.getElementById("btnLogout").onclick = async () => {
+      await sb.auth.signOut();
+      elAuthStatus.textContent = "未登入";
+      quizCard.style.display = "none";
+    };
+
+    document.getElementById("btnNext").onclick = async () => {
+      try {
+        await fetchNextQuestion();
+      } catch (e) {
+        alert(String(e.message || e));
+      }
+    };
+
+    (async function() {
+      const { data } = await sb.auth.getSession();
+      if (data?.session?.user?.email) {
+        elAuthStatus.textContent = "已登入：" + data.session.user.email;
+        const gate = await verifyGate();
+        if (gate.ok) {
+          quizCard.style.display = "block";
+          await fetchNextQuestion();
+        } else {
+          quizCard.style.display = "none";
+          alert("此帳號不允許使用：" + (gate.error || "Denied"));
+          await sb.auth.signOut();
+        }
+      }
+
+      sb.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user?.email) {
+          elAuthStatus.textContent = "已登入：" + session.user.email;
+          const gate = await verifyGate();
+          if (gate.ok) {
+            quizCard.style.display = "block";
+            await fetchNextQuestion();
+          } else {
+            quizCard.style.display = "none";
+            alert("此帳號不允許使用：" + (gate.error || "Denied"));
+            await sb.auth.signOut();
+          }
+        } else {
+          elAuthStatus.textContent = "未登入";
+          quizCard.style.display = "none";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+
