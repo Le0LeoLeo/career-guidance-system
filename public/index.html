@@ -50,6 +50,33 @@
     <div style="margin-top:10px;">
       <div class="muted">結構化結果（可讓用戶手動確認/補充分數）：</div>
       <pre id="ocrStructured"></pre>
+      <div class="row" style="margin-top:10px;">
+        <button id="btnSaveOcr">儲存此結果</button>
+        <span class="muted" id="saveOcrStatus"></span>
+      </div>
+    </div>
+
+    <h2 style="margin:14px 0 8px 0;">目標大學分析</h2>
+    <div class="muted">搜尋 Firebase 大學資料（server-side），選定後整合你的成績與問卷結果做分析。</div>
+
+    <div class="row" style="margin-top:10px;">
+      <input id="uniQuery" type="text" placeholder="輸入大學名稱關鍵字" />
+      <button id="btnUniSearch">搜尋</button>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="muted">搜尋結果：</div>
+      <div id="uniResults" class="options"></div>
+    </div>
+
+    <div style="margin-top:10px;" class="row">
+      <button id="btnRunAnalysis">開始分析</button>
+      <span class="muted" id="analysisStatus"></span>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="muted">分析結果（JSON）：</div>
+      <pre id="analysisOut"></pre>
     </div>
 
     <hr style="margin:14px 0;" />
@@ -95,8 +122,17 @@
     const elOcrFile = document.getElementById("ocrFile");
     const elOcrText = document.getElementById("ocrText");
     const elOcrStructured = document.getElementById("ocrStructured");
+    const elSaveOcrStatus = document.getElementById("saveOcrStatus");
+    const elUniQuery = document.getElementById("uniQuery");
+    const elUniResults = document.getElementById("uniResults");
+    const elAnalysisStatus = document.getElementById("analysisStatus");
+    const elAnalysisOut = document.getElementById("analysisOut");
 
     let lastQuestion = null;
+    let lastOcrResult = null;
+    let lastUploadedFile = null;
+    let selectedUniversity = null;
+
 
     async function getAccessToken() {
       const { data } = await sb.auth.getSession();
@@ -273,6 +309,7 @@
 
         elOcrText.textContent = "上傳中...";
         const uploaded = await uploadToSupabase(file);
+        lastUploadedFile = uploaded;
 
         elOcrText.textContent = "OCR 辨識中...";
         const ocrText = await callDeepseekOcr(uploaded.bucket, uploaded.file_path);
@@ -280,11 +317,134 @@
 
         elOcrStructured.textContent = "整理中...";
         const parsed = await callOcrParse(ocrText);
+        lastOcrResult = { uploaded, ocrText, parsed };
         elOcrStructured.textContent = JSON.stringify(parsed.items || [], null, 2);
+        elSaveOcrStatus.textContent = "";
       } catch (e) {
         alert(String(e.message || e));
       }
     };
+
+    async function saveOcrResult() {
+      if (!lastOcrResult) {
+        elSaveOcrStatus.textContent = "請先上傳並 OCR 圖片";
+        return false;
+      }
+      try {
+        elSaveOcrStatus.textContent = "儲存中...";
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+
+        const res = await fetch("/.netlify/functions/grades-save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({
+            storage_bucket: lastOcrResult.uploaded.bucket,
+            storage_path: lastOcrResult.uploaded.file_path,
+            ocr_text: lastOcrResult.ocrText,
+            extracted_items: lastOcrResult.parsed.items || [],
+            source_type: "score_sheet"
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Save failed");
+        
+        elSaveOcrStatus.textContent = "✓ 已儲存";
+        setTimeout(() => { elSaveOcrStatus.textContent = ""; }, 3000);
+        return true;
+      } catch (e) {
+        elSaveOcrStatus.textContent = "儲存失敗: " + (e.message || e);
+        return false;
+      }
+    }
+
+    async function searchUniversities() {
+      const query = (elUniQuery.value || "").trim();
+      if (!query) {
+        elUniResults.innerHTML = "<div class='muted'>請輸入搜尋關鍵字</div>";
+        return;
+      }
+
+      try {
+        elUniResults.innerHTML = "<div class='muted'>搜尋中...</div>";
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+
+        const res = await fetch("/.netlify/functions/firebase-universities-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({ q: query }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Search failed");
+
+        if (!data.rows || data.rows.length === 0) {
+          elUniResults.innerHTML = "<div class='muted'>沒有找到符合的大學</div>";
+          return;
+        }
+
+        elUniResults.innerHTML = "";
+        data.rows.forEach((uni, idx) => {
+          const btn = document.createElement("button");
+          btn.className = "opt";
+          btn.textContent = `${uni.name} (${uni.id})`;
+          btn.onclick = () => {
+            selectedUniversity = uni;
+            document.querySelectorAll("#uniResults .opt").forEach(el => {
+              el.style.background = "#fff";
+            });
+            btn.style.background = "#e6f7ff";
+            elAnalysisStatus.textContent = `已選擇: ${uni.name}`;
+          };
+          elUniResults.appendChild(btn);
+        });
+      } catch (e) {
+        elUniResults.innerHTML = `<div class='muted'>錯誤: ${e.message || e}</div>`;
+      }
+    }
+
+    async function runTargetAnalysis() {
+      if (!selectedUniversity) {
+        elAnalysisStatus.textContent = "請先選擇一間大學";
+        return;
+      }
+
+      try {
+        elAnalysisStatus.textContent = "分析中...";
+        elAnalysisOut.textContent = "";
+        
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+
+        const res = await fetch("/.netlify/functions/target-analysis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({
+            university: selectedUniversity,
+            notes: ""
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Analysis failed");
+        
+        elAnalysisOut.textContent = JSON.stringify(data.analysis || {}, null, 2);
+        elAnalysisStatus.textContent = "✓ 分析完成";
+      } catch (e) {
+        elAnalysisStatus.textContent = `分析失敗: ${e.message || e}`;
+        elAnalysisOut.textContent = "";
+      }
+    }
+
+    // 綁定新按鈕事件
+    document.getElementById("btnSaveOcr").onclick = saveOcrResult;
+    document.getElementById("btnUniSearch").onclick = searchUniversities;
+    elUniQuery.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") searchUniversities();
+    });
+    document.getElementById("btnRunAnalysis").onclick = runTargetAnalysis;
 
     (async function() {
       const { data } = await sb.auth.getSession();
