@@ -2,6 +2,8 @@
   "name": "campus-assistant",
   "private": true,
   "version": "1.0.0",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^12.5.0"
+  }
 }
-
