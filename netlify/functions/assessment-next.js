@@ -168,14 +168,34 @@ async function supabaseUpsertState(payload) {
 }
 
 async function callWenxinFlashGenerateQuestion(input) {
-  const endpoint = process.env.WENXIN_FLASH_ENDPOINT;
-  const apiKey = process.env.WENXIN_FLASH_API_KEY;
-  if (!endpoint || !apiKey) throw new Error("Missing Wenxin Flash env");
+  // Qianfan (Wenxin Flash) Chat Completions
+  // Endpoint doc: https://qianfan.baidubce.com/v2/chat/completions
+  // Auth header: Authorization: Bearer <bce-v3/...>
+  const endpoint = process.env.WENXIN_FLASH_ENDPOINT || "https://qianfan.baidubce.com/v2/chat/completions";
+  const apiKey = process.env.WENXIN_FLASH_API_KEY; // should be like: bce-v3/...
+  const model = process.env.WENXIN_FLASH_MODEL || "ernie-4.5-flash";
+  if (!apiKey) throw new Error("Missing Wenxin Flash env: WENXIN_FLASH_API_KEY");
 
-  const prompt = {
-    role: "user",
-    content: `你是校園輔導助手。請根據使用者目前狀態，產生下一題「生活化/校園情境」選擇題。\n規則：\n- 不可在題目/選項中提及「MBTI」「Holland」「性格測試」「人格測驗」等字眼\n- 題目需由淺入深（破冰 → 行為 → 情境），依 current_stage 調整\n- 必須針對尚未收斂的維度出題（state.unconverged）\n- 回傳必須是 JSON（不要加任何多餘文字、不要 markdown）\n- 每題提供 4 個選項，每個選項需提供對應權重變化（mbti_delta, holland_delta）\n- 權重變化數值範圍建議 -2..+2（整數）\n\n輸入 state JSON：\n${JSON.stringify(input)}`
-  };
+  const messages = [
+    {
+      role: "user",
+      content:
+`你是校園輔導助手。請根據使用者目前狀態，產生下一題「生活化/校園情境」選擇題。
+規則：
+- 不可在題目/選項中提及「MBTI」「Holland」「性格測試」「人格測驗」等字眼
+- 題目需由淺入深（破冰 → 行為 → 情境），依 current_stage 調整
+- 必須針對尚未收斂的維度出題（state.unconverged）
+- 回傳必須是 JSON（不要加任何多餘文字、不要 markdown）
+- 每題提供 4 個選項，每個選項需提供對應權重變化（mbti_delta, holland_delta）
+- 權重變化數值範圍建議 -2..+2（整數）
+
+回傳 JSON 格式範例（僅示意，請輸出同樣結構）：
+{"question_id":"q_xxx","prompt":"...","options":[{"text":"...","mbti_delta":{"E":1,"I":0},"holland_delta":{"R":1}}, ... 共4個]}
+
+輸入 state JSON：
+${JSON.stringify(input)}`
+    }
+  ];
 
   const res = await fetch(endpoint, {
     method: "POST",
@@ -183,21 +203,34 @@ async function callWenxinFlashGenerateQuestion(input) {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ messages: [prompt], temperature: 0.7 }),
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: false,
+      temperature: 0.7,
+      response_format: { type: "json_object" }
+    }),
   });
 
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-
-  let raw = data;
-  if (typeof data?.output_text === "string") raw = data.output_text;
-  if (typeof data?.result === "string") raw = data.result;
-  if (typeof data?.choices?.[0]?.message?.content === "string") raw = data.choices[0].message.content;
-
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch { throw new Error("AI returned non-JSON"); }
+  const dataText = await res.text();
+  if (!res.ok) {
+    throw new Error(`Qianfan error: ${dataText}`);
   }
-  return raw;
+
+  let data;
+  try { data = JSON.parse(dataText); } catch { throw new Error("Qianfan returned non-JSON response envelope"); }
+
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("Qianfan returned empty content");
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    // If model didn't obey, hard fail so you can see it in logs
+    throw new Error("Model content is not valid JSON");
+  }
 }
 
 exports.handler = async (event) => {
