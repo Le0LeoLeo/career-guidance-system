@@ -32,6 +32,28 @@
   </div>
 
   <div class="card" id="quizCard" style="display:none;">
+    <hr style="margin:14px 0;" />
+
+    <h2 style="margin:0 0 8px 0;">成績 / 時間表 OCR</h2>
+    <div class="muted">上傳圖片到 Supabase Storage（bucket: uploads），再用 DeepSeek-OCR 辨識，最後整理成結構化 JSON。</div>
+
+    <div style="margin-top:10px;" class="row">
+      <input id="ocrFile" type="file" accept="image/*" />
+      <button id="btnOcr">上傳並 OCR</button>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="muted">OCR 純文字：</div>
+      <pre id="ocrText"></pre>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="muted">結構化結果（可讓用戶手動確認/補充分數）：</div>
+      <pre id="ocrStructured"></pre>
+    </div>
+
+    <hr style="margin:14px 0;" />
+
     <div class="row" style="justify-content: space-between;">
       <div>
         <div class="muted">Stage: <span id="stage"></span> ／ Confidence: <span id="conf"></span></div>
@@ -69,6 +91,10 @@
     const elOptions = document.getElementById("qOptions");
     const elDebug = document.getElementById("debug");
     const elUserText = document.getElementById("userText");
+
+    const elOcrFile = document.getElementById("ocrFile");
+    const elOcrText = document.getElementById("ocrText");
+    const elOcrStructured = document.getElementById("ocrStructured");
 
     let lastQuestion = null;
 
@@ -185,6 +211,76 @@
     document.getElementById("btnNext").onclick = async () => {
       try {
         await fetchNextQuestion();
+      } catch (e) {
+        alert(String(e.message || e));
+      }
+    };
+
+    async function uploadToSupabase(file) {
+      const { data: sess } = await sb.auth.getSession();
+      const userId = sess?.session?.user?.id;
+      if (!userId) throw new Error("Not logged in");
+
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `${userId}/${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+
+      const { error } = await sb.storage.from("uploads").upload(path, file, {
+        contentType: file.type || "image/png",
+        upsert: false,
+      });
+      if (error) throw new Error("Upload failed: " + error.message);
+      return { bucket: "uploads", file_path: path };
+    }
+
+    async function callDeepseekOcr(bucket, filePath) {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not logged in");
+
+      const res = await fetch("/.netlify/functions/ocr-deepseek", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({ bucket, file_path: filePath }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "OCR failed");
+      return data.ocr_text || "";
+    }
+
+    async function callOcrParse(ocrText) {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not logged in");
+
+      const res = await fetch("/.netlify/functions/ocr-parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({ ocr_text: ocrText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Parse failed");
+      return data;
+    }
+
+    document.getElementById("btnOcr").onclick = async () => {
+      try {
+        elOcrText.textContent = "";
+        elOcrStructured.textContent = "";
+
+        const file = elOcrFile.files && elOcrFile.files[0];
+        if (!file) throw new Error("請先選擇圖片");
+
+        const gate = await verifyGate();
+        if (!gate.ok) throw new Error("未通過權限驗證");
+
+        elOcrText.textContent = "上傳中...";
+        const uploaded = await uploadToSupabase(file);
+
+        elOcrText.textContent = "OCR 辨識中...";
+        const ocrText = await callDeepseekOcr(uploaded.bucket, uploaded.file_path);
+        elOcrText.textContent = ocrText || "(空)";
+
+        elOcrStructured.textContent = "整理中...";
+        const parsed = await callOcrParse(ocrText);
+        elOcrStructured.textContent = JSON.stringify(parsed.items || [], null, 2);
       } catch (e) {
         alert(String(e.message || e));
       }
