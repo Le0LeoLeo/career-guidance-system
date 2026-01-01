@@ -3,7 +3,5 @@
   "private": true,
   "version": "1.0.0",
   "type": "commonjs",
-  "dependencies": {
-    "firebase-admin": "^12.5.0"
-  }
+  "dependencies": {}
 }
