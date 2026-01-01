@@ -168,6 +168,10 @@ async function supabaseUpsertState(payload) {
 }
 
 async function callWenxinFlashGenerateQuestion(input) {
+  console.log("--- DEBUG: assessment-next: callWenxinFlashGenerateQuestion ---");
+  console.log("WENXIN_FLASH_ENDPOINT:", process.env.WENXIN_FLASH_ENDPOINT);
+  console.log("WENXIN_FLASH_API_KEY exists:", !!process.env.WENXIN_FLASH_API_KEY);
+  console.log("WENXIN_FLASH_MODEL:", process.env.WENXIN_FLASH_MODEL);
   // Qianfan (Wenxin Flash) Chat Completions
   // Endpoint doc: https://qianfan.baidubce.com/v2/chat/completions
   // Auth header: Authorization: Bearer <bce-v3/...>
