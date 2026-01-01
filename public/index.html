@@ -122,7 +122,6 @@
         <button class="tab-link" data-tab="ocrCard">成績 / 時間表 OCR</button>
         <button class="tab-link" data-tab="analysisCard">目標大學分析</button>
       </div>
-
       <div id="assessmentCard" class="card tab-content active">
         <h2>個人化問卷</h2>
         <div class="row muted" style="justify-content: space-between;">
@@ -190,8 +189,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    // --- Existing JS logic will be slightly modified to handle new UI --- 
     const SUPABASE_URL = "https://spsvuybwaciyfwxmvuxh.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_iNkjfB2_8AMe-gw8QroPhw_2RljOBgO";
+
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Element mapping
@@ -226,36 +227,22 @@
 
     let lastQuestion = null;
     let lastOcrResult = null;
+    let lastUploadedFile = null;
     let selectedUniversity = null;
 
     // --- Helper Functions for UI --- 
     function setLoading(button, isLoading) {
-      const originalText = button.dataset.originalText || button.innerText;
       if (isLoading) {
-        if (!button.dataset.originalText) button.dataset.originalText = button.innerText;
         button.disabled = true;
-        button.innerHTML = originalText + ' <span class="loader"></span>';
+        button.innerHTML += '<span class="loader"></span>';
       } else {
         button.disabled = false;
-        if(button.dataset.originalText) button.innerText = button.dataset.originalText;
         const loader = button.querySelector('.loader');
         if (loader) loader.remove();
       }
     }
 
-    async function callApi(endpoint, payload) {
-        const token = await getAccessToken();
-        if (!token) throw new Error("Not logged in");
-        const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-            body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "API call failed");
-        return data;
-    }
-
+    // --- Core Logic (adapted from original) ---
     async function getAccessToken() {
       const { data } = await sb.auth.getSession();
       return data?.session?.access_token || null;
@@ -294,12 +281,20 @@
       });
     }
 
-    async function fetchNextQuestion(payload = {}) {
+    async function fetchNextQuestion() {
       setLoading(btnNext, true);
       try {
-        const data = await callApi("/.netlify/functions/assessment-next", payload);
-        elUserText.value = "";
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
 
+        const res = await fetch("/.netlify/functions/assessment-next", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({}),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed");
         if (data.done) {
           renderState(data.state);
           elPrompt.textContent = "問卷已收斂完成。";
@@ -315,16 +310,44 @@
     }
 
     async function submitAnswer(selectedIndex, selectedOption) {
+      setLoading(btnNext, true);
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
         if (!lastQuestion) throw new Error("No question");
+
         const payload = {
-            answer: {
-                question_id: lastQuestion.question_id,
-                selected_index: selectedIndex,
-                selected_option: selectedOption,
-                user_text: elUserText.value || ""
-            }
+          answer: {
+            question_id: lastQuestion.question_id,
+            selected_index: selectedIndex,
+            selected_option: selectedOption,
+            user_text: elUserText.value || ""
+          }
         };
-        await fetchNextQuestion(payload);
+
+        const res = await fetch("/.netlify/functions/assessment-next", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed");
+        elUserText.value = "";
+
+        if (data.done) {
+          renderState(data.state);
+          elPrompt.textContent = "問卷已收斂完成。";
+          elOptions.innerHTML = "";
+          btnNext.classList.add('hidden');
+          return;
+        }
+
+        renderState(data.state);
+        renderQuestion(data.question);
+      } finally {
+        setLoading(btnNext, false);
+      }
     }
 
     btnLogin.onclick = async () => {
@@ -334,8 +357,17 @@
       });
     };
 
-    btnLogout.onclick = () => sb.auth.signOut();
-    btnNext.onclick = () => fetchNextQuestion({});
+    btnLogout.onclick = async () => {
+      await sb.auth.signOut();
+    };
+
+    btnNext.onclick = async () => {
+      try {
+        await fetchNextQuestion();
+      } catch (e) {
+        alert(String(e.message || e));
+      }
+    };
 
     async function uploadToSupabase(file) {
       const { data: sess } = await sb.auth.getSession();
@@ -353,6 +385,19 @@
       return { bucket: "uploads", file_path: path };
     }
 
+    async function callApi(endpoint, payload) {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "API call failed");
+        return data;
+    }
+
     btnOcr.onclick = async () => {
       setLoading(btnOcr, true);
       try {
@@ -361,6 +406,7 @@
         if (!file) throw new Error("請先選擇圖片");
 
         const uploaded = await uploadToSupabase(file);
+        
         const ocrData = await callApi("/.netlify/functions/ocr-deepseek", { bucket: uploaded.bucket, file_path: uploaded.file_path });
         const ocrText = ocrData.ocr_text || "";
         elOcrText.textContent = ocrText || "(辨識為空)";
@@ -464,19 +510,28 @@
       }
     };
 
+    // --- Tab Navigation Logic ---
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabContents = document.querySelectorAll('.tab-content');
+
     tabLinks.forEach(link => {
       link.addEventListener('click', () => {
         const tabId = link.getAttribute('data-tab');
+
         tabLinks.forEach(item => item.classList.remove('active'));
         link.classList.add('active');
+
         tabContents.forEach(content => {
-          content.id === tabId ? content.classList.add('active') : content.classList.remove('active');
+          if (content.id === tabId) {
+            content.classList.add('active');
+          } else {
+            content.classList.remove('active');
+          }
         });
       });
     });
 
+    // --- Auth State Change Handler ---
     function handleAuthStateChange(session) {
         if (session?.user?.email) {
             elAuthStatus.textContent = "已登入：" + session.user.email;
@@ -492,14 +547,17 @@
     }
 
     (async function() {
-      sb.auth.onAuthStateChange((event, session) => handleAuthStateChange(session));
+      sb.auth.onAuthStateChange((event, session) => {
+        handleAuthStateChange(session);
+      });
+
       const { data } = await sb.auth.getSession();
       handleAuthStateChange(data.session);
       
       if (data?.session?.user) {
         const gate = await verifyGate();
         if (gate.ok) {
-          await fetchNextQuestion({});
+          await fetchNextQuestion();
         } else {
           alert("此帳號不允許使用：" + (gate.error || "Denied"));
           await sb.auth.signOut();
