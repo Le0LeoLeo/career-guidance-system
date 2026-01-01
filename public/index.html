@@ -252,7 +252,7 @@
       const token = await getAccessToken();
       if (!token) return { ok: false, error: "Not logged in" };
 
-      const res = await fetch("/.netlify/functions/auth-verify", {
+      const res = await fetch("/auth-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
         body: JSON.stringify({}),
@@ -287,7 +287,7 @@
         const token = await getAccessToken();
         if (!token) throw new Error("Not logged in");
 
-        const res = await fetch("/.netlify/functions/assessment-next", {
+        const res = await fetch("/assessment-next", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
           body: JSON.stringify({}),
@@ -325,7 +325,7 @@
           }
         };
 
-        const res = await fetch("/.netlify/functions/assessment-next", {
+        const res = await fetch("/assessment-next", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
           body: JSON.stringify(payload),
@@ -407,11 +407,11 @@
 
         const uploaded = await uploadToSupabase(file);
         
-        const ocrData = await callApi("/.netlify/functions/ocr-deepseek", { bucket: uploaded.bucket, file_path: uploaded.file_path });
+        const ocrData = await callApi("/ocr-deepseek", { bucket: uploaded.bucket, file_path: uploaded.file_path });
         const ocrText = ocrData.ocr_text || "";
         elOcrText.textContent = ocrText || "(辨識為空)";
 
-        const parsedData = await callApi("/.netlify/functions/ocr-parse", { ocr_text: ocrText });
+        const parsedData = await callApi("/ocr-parse", { ocr_text: ocrText });
         lastOcrResult = { uploaded, ocrText, parsed: parsedData };
         elOcrStructured.textContent = JSON.stringify(parsedData.items || [], null, 2);
         
@@ -439,7 +439,7 @@
             extracted_items: lastOcrResult.parsed.items || [],
             source_type: "score_sheet"
         };
-        await callApi("/.netlify/functions/grades-save", payload);
+        await callApi("/grades-save", payload);
         elSaveOcrStatus.textContent = "✓ 已儲存";
         setTimeout(() => { elSaveOcrStatus.textContent = ""; }, 3000);
       } catch (e) {
@@ -458,7 +458,7 @@
       setLoading(btnUniSearch, true);
       try {
         elUniResults.innerHTML = "<div class='muted'>搜尋中...</div>";
-        const data = await callApi("/.netlify/functions/firebase-universities-search", { q: query });
+        const data = await callApi("/firebase-universities-search", { q: query });
 
         if (!data.rows || data.rows.length === 0) {
           elUniResults.innerHTML = "<div class='muted'>沒有找到符合的大學</div>";
@@ -499,7 +499,7 @@
       elAnalysisResultArea.classList.add('hidden');
       try {
         elAnalysisStatus.textContent = "分析中...";
-        const data = await callApi("/.netlify/functions/target-analysis", { university: selectedUniversity, notes: "" });
+        const data = await callApi("/target-analysis", { university: selectedUniversity, notes: "" });
         elAnalysisOut.textContent = JSON.stringify(data.analysis || {}, null, 2);
         elAnalysisResultArea.classList.remove('hidden');
         elAnalysisStatus.textContent = "✓ 分析完成";
