@@ -71,3 +71,4 @@ create policy "user_grades_delete_own"
 on public.user_grades for delete
 using (auth.uid() = user_id);
 
+

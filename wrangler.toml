@@ -1,8 +1,11 @@
-# wrangler.toml
+# Cloudflare Pages configuration
 name = "career-guidance-system"
 compatibility_date = "2024-05-01"
 
+# Required for Cloudflare Pages to recognize this as a valid Pages configuration
+pages_build_output_dir = "public"
+
+# Enable Node.js compatibility for Pages Functions
 [[pages.functions.compatibility_flags]]
-# Enable Node.js compatibility
 nodejs_compat = true
 
