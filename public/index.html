@@ -416,7 +416,7 @@
 
     <!-- 版本號顯示 -->
     <div class="version-info" id="versionInfo" style="display: block !important; visibility: visible !important; opacity: 1 !important;">
-        <span id="versionText">載入中...</span>
+        <span id="versionText">Build: 9b5f3f2</span>
     </div>
 
     <script>
@@ -453,10 +453,10 @@
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 const seconds = String(now.getSeconds()).padStart(2, '0');
                 
-                const version = `v${year}.${month}.${day}.${hours}${minutes}${seconds}`;
+                const version = `Build: 9b5f3f2`; 
                 
                 // 直接設置版本號（不依賴 API）
-                versionElement.textContent = `版本: ${version}`;
+                versionElement.textContent = version;
                 
                 // 確保元素可見
                 const versionInfo = document.getElementById('versionInfo');
