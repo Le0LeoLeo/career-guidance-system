@@ -233,6 +233,55 @@
             color: #155724;
         }
 
+        /* 測考時間表項目樣式 */
+        .schedule-items {
+            margin-top: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .schedule-header {
+            display: grid;
+            grid-template-columns: 1fr 0.8fr 1.5fr 1fr 1fr;
+            background-color: #f5f5f5;
+            font-weight: bold;
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .schedule-item {
+            display: grid;
+            grid-template-columns: 1fr 0.8fr 1.5fr 1fr 1fr;
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+
+        .schedule-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .schedule-item .editable {
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-height: 20px;
+        }
+
+        .schedule-item .editable:focus {
+            outline: 2px solid #667eea;
+            background-color: white;
+        }
+
+        /* 檔案預覽 */
+        .file-preview {
+            text-align: center;
+            padding: 20px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
         .loading {
             display: inline-block;
             width: 20px;
@@ -363,18 +412,28 @@
             </div>
         </div>
 
-        <!-- OCR 模組 -->
+        <!-- 測考時間表 OCR 模組 -->
         <div id="module-ocr" class="module-content">
             <div class="auth-section">
-                <h2>📸 OCR 圖片識別</h2>
+                <h2>🗓️ 測考時間表（上傳 → OCR → 整理）</h2>
+                <p style="color:#666; margin-bottom: 12px;">上傳你的測考時間表（圖片或 PDF），系統會進行 OCR 並整理成結構化清單。</p>
+
                 <div class="file-upload" onclick="document.getElementById('ocrFile').click()">
-                    <p>📁 點擊選擇圖片檔案</p>
-                    <p><small>支援 JPG、PNG 等格式</small></p>
-                    <input type="file" id="ocrFile" accept="image/*" onchange="handleFileSelect(event)">
+                    <p>📁 點擊選擇檔案</p>
+                    <p><small>支援 JPG、PNG、PDF</small></p>
+                    <input type="file" id="ocrFile" accept="image/*,application/pdf" onchange="handleFileSelect(event)">
                 </div>
                 <div id="ocrPreview" style="margin-top: 20px;"></div>
-                <button class="btn" id="ocrSubmitBtn" onclick="submitOCR()" disabled>開始識別</button>
+
+                <div style="margin-top: 12px;">
+                    <button class="btn" id="ocrSubmitBtn" onclick="submitScheduleFlow()" disabled>開始分析</button>
+                    <button class="btn btn-secondary" onclick="toggleOcrRaw()">顯示/隱藏 OCR 原文</button>
+                    <button class="btn btn-secondary" id="saveScheduleBtn" onclick="saveScheduleRecord()" disabled>保存到我的記錄</button>
+                </div>
+
+                <div id="ocrRawBox" class="result-box" style="display:none;"></div>
                 <div id="ocrResult" class="result-box"></div>
+                <div id="scheduleItemsBox" class="result-box"></div>
             </div>
         </div>
 
@@ -645,60 +704,268 @@
             }
         }
 
-        // OCR 檔案選擇
+        // ===== 測考時間表：前端狀態 =====
+        let currentScheduleFile = null;
+        let currentOcrText = '';
+        let currentParsedItems = [];
+        let currentProcessedFile = null; // { bucket, storage_path, ocr_text }
+
+        function toggleOcrRaw() {
+            const rawBox = document.getElementById('ocrRawBox');
+            if (!rawBox) return;
+            if (rawBox.style.display === 'none' || rawBox.style.display === '') {
+                rawBox.style.display = 'block';
+            } else {
+                rawBox.style.display = 'none';
+            }
+        }
+
+        function displayScheduleItems(items) {
+            const container = document.getElementById('scheduleItemsBox');
+            if (!container) return;
+
+            container.classList.add('active');
+
+            if (!items || items.length === 0) {
+                container.classList.add('error');
+                container.innerHTML = '<div>沒有找到有效的測考項目</div>';
+                return;
+            }
+
+            container.classList.remove('error');
+            container.classList.add('success');
+
+            let html = `
+                <h4>找到 ${items.length} 個項目（可直接點擊文字修改）</h4>
+                <div class="schedule-items">
+                    <div class="schedule-header">
+                        <div>日期</div>
+                        <div>時間</div>
+                        <div>科目/活動</div>
+                        <div>地點</div>
+                        <div>備註</div>
+                    </div>
+            `;
+
+            items.forEach((item, index) => {
+                html += `
+                    <div class="schedule-item" data-index="${index}">
+                        <div class="editable" contenteditable="true" data-field="date">${item.date || ''}</div>
+                        <div class="editable" contenteditable="true" data-field="time">${item.time || ''}</div>
+                        <div class="editable" contenteditable="true" data-field="title">${item.title || ''}</div>
+                        <div class="editable" contenteditable="true" data-field="location">${item.location || ''}</div>
+                        <div class="editable" contenteditable="true" data-field="note">${item.note || ''}</div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+
+            const saveBtn = document.getElementById('saveScheduleBtn');
+            if (saveBtn) saveBtn.disabled = false;
+        }
+
+        // 檔案選擇（圖片或 PDF）
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            selectedFile = file;
-            document.getElementById('ocrSubmitBtn').disabled = false;
+            selectedFile = file; // legacy
+            currentScheduleFile = file;
 
-            // 預覽圖片
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('ocrPreview').innerHTML = `
-                    <img src="${e.target.result}" style="max-width: 100%; border-radius: 8px; margin-bottom: 10px;">
-                    <p><strong>已選擇:</strong> ${file.name} (${(file.size / 1024).toFixed(2)} KB)</p>
+            document.getElementById('ocrSubmitBtn').disabled = false;
+            const saveBtn = document.getElementById('saveScheduleBtn');
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存到我的記錄'; }
+
+            currentOcrText = '';
+            currentParsedItems = [];
+            currentProcessedFile = null;
+
+            const preview = document.getElementById('ocrPreview');
+            const rawBox = document.getElementById('ocrRawBox');
+            const result = document.getElementById('ocrResult');
+            const itemsBox = document.getElementById('scheduleItemsBox');
+            if (rawBox) { rawBox.style.display = 'none'; rawBox.classList.remove('active'); rawBox.innerHTML = ''; }
+            if (result) { result.classList.remove('active'); result.innerHTML = ''; }
+            if (itemsBox) { itemsBox.classList.remove('active'); itemsBox.innerHTML = ''; }
+
+            if (file.type && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.innerHTML = `
+                        <img src="${e.target.result}" style="max-width: 100%; border-radius: 8px; margin-bottom: 10px;">
+                        <p><strong>已選擇:</strong> ${file.name} (${(file.size / 1024).toFixed(2)} KB)</p>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // PDF 或其他
+                preview.innerHTML = `
+                    <div class="file-preview">
+                        <div style="font-size: 42px;">📄</div>
+                        <div style="margin-top: 8px;"><b>${file.name}</b></div>
+                        <div style="margin-top: 4px; color:#666;">${(file.size / 1024).toFixed(1)} KB</div>
+                    </div>
                 `;
-            };
-            reader.readAsDataURL(file);
+            }
         }
 
-        // 提交 OCR
-        async function submitOCR() {
-            if (!selectedFile) {
-                showError('請先選擇圖片');
+        // 主流程：上傳 → OCR → 整理
+        async function submitScheduleFlow() {
+            if (!currentToken) {
+                showError('請先登入');
+                return;
+            }
+            if (!currentScheduleFile) {
+                showError('請先選擇檔案');
                 return;
             }
 
-            // 先呼叫 ocr-deepseek
-            const formData = new FormData();
-            formData.append('file', selectedFile);
+            const btn = document.getElementById('ocrSubmitBtn');
+            const resultBox = document.getElementById('ocrResult');
+            const rawBox = document.getElementById('ocrRawBox');
+            const itemsBox = document.getElementById('scheduleItemsBox');
+
+            btn.disabled = true;
+            btn.textContent = '分析中…';
+
+            const setStatus = (obj, isErr=false) => {
+                if (!resultBox) return;
+                resultBox.classList.add('active');
+                resultBox.classList.toggle('error', isErr);
+                resultBox.classList.toggle('success', !isErr);
+                resultBox.innerHTML = `<pre>${JSON.stringify(obj, null, 2)}</pre>`;
+            };
 
             try {
-                const response = await fetch('/ocr-deepseek', {
+                // 1) 上傳
+                setStatus({ step: 'upload', message: '正在上傳檔案…' });
+
+                const formData = new FormData();
+                formData.append('file', currentScheduleFile);
+                formData.append('bucket', 'uploads');
+                formData.append('prefix', `schedule/${currentUser?.id || 'unknown'}`);
+
+                const uploadRes = await fetch('/storage-upload', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${currentToken}`
-                    },
+                    headers: { 'Authorization': `Bearer ${currentToken}` },
                     body: formData
                 });
+                const uploadText = await uploadRes.text();
+                let uploadData;
+                try { uploadData = JSON.parse(uploadText); } catch { uploadData = { ok:false, raw: uploadText }; }
+                if (!uploadRes.ok || !uploadData.ok) throw new Error(`上傳失敗: ${uploadData.error || uploadText}`);
 
-                const ocrResult = await response.json();
-                if (ocrResult.error) {
-                    showResult('ocrResult', ocrResult, true);
-                    return;
-                }
+                currentProcessedFile = { bucket: uploadData.bucket, storage_path: uploadData.storage_path };
 
-                // 然後呼叫 ocr-parse 解析
-                const parseResult = await apiCall('ocr-parse', {
+                // 2) OCR
+                setStatus({ step: 'ocr', message: '正在進行 OCR…', bucket: uploadData.bucket, file_path: uploadData.storage_path });
+
+                const ocrRes = await fetch('/ocr-deepseek', {
                     method: 'POST',
-                    body: JSON.stringify({ ocr_text: ocrResult.text || ocrResult.result })
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
+                    body: JSON.stringify({ bucket: uploadData.bucket, file_path: uploadData.storage_path })
                 });
 
-                showResult('ocrResult', { ocr: ocrResult, parsed: parseResult }, !!parseResult.error);
-            } catch (error) {
-                showError('OCR 處理失敗: ' + error.message);
+                const ocrText = await ocrRes.text();
+                let ocrData;
+                try { ocrData = JSON.parse(ocrText); } catch { ocrData = { ok:false, raw: ocrText }; }
+                if (!ocrRes.ok || !ocrData.ok) throw new Error(`OCR 失敗: ${ocrData.error || ocrData.details || ocrText}`);
+
+                currentOcrText = ocrData.ocr_text || '';
+                currentProcessedFile.ocr_text = currentOcrText;
+
+                if (rawBox) {
+                    rawBox.classList.add('active');
+                    rawBox.innerHTML = `<h4>OCR 原文</h4><pre>${currentOcrText || ''}</pre>`;
+                }
+
+                // 3) 整理
+                setStatus({ step: 'parse', message: '正在整理成測考清單…' });
+
+                const parseRes = await fetch('/ocr-parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
+                    body: JSON.stringify({ ocr_text: currentOcrText })
+                });
+
+                const parseText = await parseRes.text();
+                let parseData;
+                try { parseData = JSON.parse(parseText); } catch { parseData = { ok:false, raw: parseText }; }
+                if (!parseRes.ok || !parseData.ok) throw new Error(`整理失敗: ${parseData.error || parseData.details || parseText}`);
+
+                currentParsedItems = Array.isArray(parseData.items) ? parseData.items : [];
+                currentProcessedFile.items = currentParsedItems;
+
+                setStatus({ step: 'done', message: '完成', items_count: currentParsedItems.length });
+                displayScheduleItems(currentParsedItems);
+
+                // enable save
+                const saveBtn = document.getElementById('saveScheduleBtn');
+                if (saveBtn) saveBtn.disabled = false;
+
+            } catch (e) {
+                setStatus({ step: 'error', message: String(e?.message || e) }, true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '重新分析';
+            }
+        }
+
+        // 保存到 Supabase
+        async function saveScheduleRecord() {
+            if (!currentToken) { showError('請先登入'); return; }
+            if (!currentProcessedFile?.storage_path) { showError('尚未分析完成'); return; }
+
+            // gather edits
+            const edited = Array.from(document.querySelectorAll('.schedule-item')).map(el => {
+                const idx = Number(el.getAttribute('data-index'));
+                const base = currentParsedItems[idx] || {};
+                const out = { ...base };
+                el.querySelectorAll('.editable').forEach(ed => {
+                    const f = ed.getAttribute('data-field');
+                    out[f] = (ed.textContent || '').trim();
+                });
+                return out;
+            });
+
+            const btn = document.getElementById('saveScheduleBtn');
+            btn.disabled = true;
+            btn.textContent = '保存中…';
+
+            try {
+                const res = await fetch('/grades-save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
+                    body: JSON.stringify({
+                        storage_bucket: currentProcessedFile.bucket || 'uploads',
+                        storage_path: currentProcessedFile.storage_path,
+                        ocr_text: currentProcessedFile.ocr_text || '',
+                        extracted_items: edited,
+                        source_type: 'exam_schedule',
+                        note: '測考時間表'
+                    })
+                });
+
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch { data = { ok:false, raw: text }; }
+                if (!res.ok || !data.ok) throw new Error(data.error || data.details || text);
+
+                const resultBox = document.getElementById('ocrResult');
+                if (resultBox) {
+                    resultBox.classList.add('active');
+                    resultBox.classList.remove('error');
+                    resultBox.classList.add('success');
+                    resultBox.innerHTML += `<pre>✅ 已保存，記錄 ID: ${data?.row?.id || ''}</pre>`;
+                }
+
+                btn.textContent = '已保存';
+            } catch (e) {
+                showError('保存失敗: ' + (e.message || String(e)));
+                btn.disabled = false;
+                btn.textContent = '保存到我的記錄';
             }
         }
 

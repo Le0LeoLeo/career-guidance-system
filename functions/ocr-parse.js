@@ -1,9 +1,8 @@
 // functions/ocr-parse.js
 
 const ALLOWED_DOMAIN = "fct.edu.mo";
-const BLOCKED_EMAIL = "iopiopiopiopiopiop9990@gmail.com";
+const BLOCKED_EMAIL = "iopiopiopiopiop9990@gmail.com";
 
-// Helper to create a JSON response with CORS headers
 function jsonResponse(statusCode, body) {
   return new Response(JSON.stringify(body), {
     status: statusCode,
@@ -43,6 +42,23 @@ async function verifyAndGetUser(request, env) {
   return { ok: true, user: { id: userId, email } };
 }
 
+function normStr(x, max = 200) {
+  if (typeof x !== "string") return "";
+  return x.replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function normDate(x) {
+  const s = normStr(x, 20);
+  // allow YYYY-MM-DD or MM/DD etc.
+  return s;
+}
+
+function normTime(x) {
+  const s = normStr(x, 10);
+  // allow HH:mm / 上午 / 下午 / 上 / 下 ... keep as is.
+  return s;
+}
+
 async function parseWithModel(ocrText, env) {
   const endpoint = "https://qianfan.baidubce.com/v2/chat/completions";
   const apiKey = env.QIANFAN_API_KEY;
@@ -52,23 +68,8 @@ async function parseWithModel(ocrText, env) {
   const messages = [
     {
       role: "user",
-      content:
-`你是一個資料整理助手。請把以下 OCR 純文字整理成結構化 JSON。
-需求：
-- 不要輸出多餘文字、不要 markdown，只輸出 JSON
-- 盡量辨識：科目(subject)、日期(date)、分數(score)
-- date 盡量轉成 YYYY-MM-DD（不確定可留空字串）
-- score 若沒有就留 null
-- items 是陣列
-
-輸出格式：
-{"items":[{"subject":"...","date":"YYYY-MM-DD","score":123}, ...]}
-
-OCR 文字如下：
-"""
-${ocrText}
-"""`
-    }
+      content: `你是一個資料整理助手。請把以下 OCR 純文字整理成「測驗/考試/活動時間表」的結構化 JSON。\n\n重要要求：\n- 不要輸出多餘文字、不要 markdown，只輸出 JSON\n- 不要遺漏重要內容：只要看起來是測驗/考試/活動/上課安排/假期/無安排，都可以整理成 items\n- 若年份不確定，可用 MM/DD 或保留原樣\n- 時間若只有「上午/下午/上/下」也可保留\n\n輸出格式（只輸出 JSON）：\n{\n  \"items\": [\n    {\n      \"title\": \"事件名稱/科目\",\n      \"date\": \"YYYY-MM-DD 或 MM/DD 或原文\",\n      \"time\": \"HH:mm 或 上午/下午/上/下 或空字串\",\n      \"location\": \"地點(如有)\",\n      \"note\": \"備註(如有)\",\n      \"raw\": \"對應的原文片段\"\n    }\n  ]\n}\n\nOCR 文字如下：\n\"\"\"\n${ocrText}\n\"\"\"`,
+    },
   ];
 
   const res = await fetch(endpoint, {
@@ -90,20 +91,33 @@ ${ocrText}
   if (!res.ok) throw new Error(`parse model error: ${text}`);
 
   let data;
-  try { data = JSON.parse(text); } catch { throw new Error("parse model returned non-JSON envelope"); }
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("parse model returned non-JSON envelope");
+  }
 
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) throw new Error("parse model empty content");
 
   let parsed;
-  try { parsed = JSON.parse(content); } catch { throw new Error("parse model content not JSON"); }
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error("parse model content not JSON");
+  }
 
   const items = Array.isArray(parsed?.items) ? parsed.items : [];
-  const normalized = items.map((x) => ({
-    subject: typeof x?.subject === "string" ? x.subject.slice(0, 80) : "",
-    date: typeof x?.date === "string" ? x.date.slice(0, 20) : "",
-    score: (typeof x?.score === "number" && Number.isFinite(x.score)) ? x.score : null,
-  })).filter((x) => x.subject || x.date || x.score !== null);
+  const normalized = items
+    .map((x) => ({
+      title: normStr(x?.title, 120),
+      date: normDate(x?.date),
+      time: normTime(x?.time),
+      location: normStr(x?.location, 120),
+      note: normStr(x?.note, 200),
+      raw: normStr(x?.raw, 500),
+    }))
+    .filter((x) => x.title || x.date || x.time || x.location || x.note || x.raw);
 
   return { items: normalized };
 }
@@ -130,7 +144,11 @@ export async function onRequest(context) {
     if (!ver.ok) return jsonResponse(ver.status, { error: ver.error });
 
     let body;
-    try { body = await request.json(); } catch { return jsonResponse(400, { error: "Invalid JSON" }); }
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse(400, { error: "Invalid JSON" });
+    }
 
     const ocrText = body?.ocr_text;
     if (!ocrText || typeof ocrText !== "string") return jsonResponse(400, { error: "ocr_text required" });
@@ -141,4 +159,3 @@ export async function onRequest(context) {
     return jsonResponse(500, { error: "Server error", details: String(e?.message || e) });
   }
 }
-
