@@ -83,9 +83,24 @@ export async function onRequest(context) {
       return jsonResponse(403, { error: "google only" });
     }
 
-    return jsonResponse(200, { ok: true, user: { id: userId, email } });
+    // Prefer Google profile name from Admin API identities (more reliable than user_metadata)
+    const identities = Array.isArray(adminUser?.identities) ? adminUser.identities : [];
+    const googleIdentity = identities.find((i) => (i?.provider || "").toLowerCase() === "google") || identities[0];
+    const identityData = googleIdentity?.identity_data || {};
+
+    const fullName =
+      identityData?.full_name ||
+      identityData?.name ||
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      "";
+
+    return jsonResponse(200, { ok: true, user: { id: userId, email, full_name: fullName } });
   } catch (e) {
     return jsonResponse(500, { error: e.message || String(e) });
   }
 }
+
+
+
 
