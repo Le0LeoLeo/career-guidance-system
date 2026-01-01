@@ -448,27 +448,13 @@
 
         // 處理 OAuth 回調
         function handleAuthCallback() {
-            // Supabase OAuth 可能使用 hash fragment (#access_token=...) 或 query string (?access_token=...)
-            let accessToken = null;
-            let error = null;
-            
-            // 檢查 hash fragment (Supabase 常用方式)
-            if (window.location.hash) {
-                const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                accessToken = hashParams.get('access_token');
-                error = hashParams.get('error');
-            }
-            
-            // 如果 hash 中沒有，檢查 query string
-            if (!accessToken && !error) {
-                const urlParams = new URLSearchParams(window.location.search);
-                accessToken = urlParams.get('access_token');
-                error = urlParams.get('error');
-            }
+            const urlParams = new URLSearchParams(window.location.search);
+            const accessToken = urlParams.get('access_token');
+            const error = urlParams.get('error');
             
             if (error) {
                 showError('登入失敗: ' + error);
-                // 清除 URL 參數和 hash
+                // 清除 URL 參數
                 window.history.replaceState({}, document.title, window.location.pathname);
                 return;
             }
@@ -476,7 +462,7 @@
             if (accessToken) {
                 // 保存 token
                 localStorage.setItem('supabase_token', accessToken);
-                // 清除 URL 參數和 hash
+                // 清除 URL 參數
                 window.history.replaceState({}, document.title, window.location.pathname);
                 // 重新檢查認證狀態
                 checkAuth();
@@ -488,6 +474,23 @@
             try {
                 // 從 API 獲取 Supabase 配置
                 const response = await fetch('/api/auth-config');
+                
+                // 檢查響應狀態
+                if (!response.ok) {
+                    const text = await response.text();
+                    showError(`無法連接到伺服器 (${response.status}): ${text.substring(0, 100)}`);
+                    return;
+                }
+                
+                // 檢查 Content-Type 是否為 JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    showError('伺服器返回了非 JSON 格式的響應。請確認 API 端點是否正確部署。');
+                    console.error('非 JSON 響應:', text.substring(0, 200));
+                    return;
+                }
+                
                 const config = await response.json();
                 
                 if (config.error || !config.supabaseUrl) {
@@ -503,6 +506,7 @@
                 window.location.href = authUrl;
             } catch (error) {
                 showError('登入失敗: ' + error.message);
+                console.error('登入錯誤詳情:', error);
             }
         }
 
