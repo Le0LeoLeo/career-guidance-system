@@ -167,34 +167,15 @@ async function supabaseUpsertState(payload) {
   return rows[0] || null;
 }
 
-// ---- Qianfan (Wenxin) helper ----
-// cache token in memory (per cold start)
-let QIANFAN_TOKEN_CACHE = { token: null, expires_at: 0 };
-
-async function getQianfanAccessToken() {
-  const now = Date.now();
-  if (QIANFAN_TOKEN_CACHE.token && QIANFAN_TOKEN_CACHE.expires_at - now > 60_000) {
-    return QIANFAN_TOKEN_CACHE.token;
-  }
-  const apiKey = process.env.QIANFAN_API_KEY;
-  const secretKey = process.env.QIANFAN_SECRET_KEY;
-  if (!apiKey || !secretKey) throw new Error("Missing Qianfan API env: QIANFAN_API_KEY / QIANFAN_SECRET_KEY");
-  const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${encodeURIComponent(apiKey)}&client_secret=${encodeURIComponent(secretKey)}`;
-  const res = await fetch(url, { method: "POST" });
-  const data = await res.json();
-  if (!res.ok || !data.access_token) throw new Error("Failed to obtain Qianfan access_token: " + JSON.stringify(data));
-  QIANFAN_TOKEN_CACHE = { token: data.access_token, expires_at: now + (data.expires_in || 0) * 1000 };
-  return data.access_token;
-}
-
 async function callWenxinFlashGenerateQuestion(input) {
   console.log("--- DEBUG: assessment-next: callWenxinFlashGenerateQuestion ---");
   console.log("WENXIN_FLASH_ENDPOINT:", process.env.WENXIN_FLASH_ENDPOINT);
   console.log("WENXIN_FLASH_API_KEY exists:", !!process.env.WENXIN_FLASH_API_KEY);
   console.log("WENXIN_FLASH_MODEL:", process.env.WENXIN_FLASH_MODEL);
+  const endpoint = "https://qianfan.baidubce.com/v2/chat/completions";
+  const apiKey = process.env.QIANFAN_API_KEY; // This should be the bce-v3/... key
+  if (!apiKey) throw new Error("Missing Qianfan API env: QIANFAN_API_KEY");
   const model = process.env.WENXIN_FLASH_MODEL || "ernie-4.5-flash";
-  const accessToken = await getQianfanAccessToken();
-  const endpoint = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
 
   const messages = [
     {
@@ -221,11 +202,14 @@ ${JSON.stringify(input)}`
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
+      model,
       messages,
       stream: false,
-      temperature: 0.7
+      temperature: 0.7,
+      response_format: { type: "json_object" }
     }),
   });
 
@@ -237,10 +221,10 @@ ${JSON.stringify(input)}`
   let data;
   try { data = JSON.parse(dataText); } catch { throw new Error("Qianfan returned non-JSON response envelope"); }
 
-  const content = data?.result;
+  const content = data?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) {
     if (data?.error_code) {
-        throw new Error(`Qianfan API error: ${data.error_msg} (code: ${data.error_code})`);
+      throw new Error(`Qianfan API error: ${data.error_msg} (code: ${data.error_code})`);
     }
     throw new Error("Qianfan returned empty or invalid content");
   }
