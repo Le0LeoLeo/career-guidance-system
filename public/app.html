@@ -484,7 +484,7 @@
             }
 
             try {
-                const response = await fetch('/api/auth-verify', {
+                const response = await fetch('/auth-verify', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -591,7 +591,7 @@
             };
 
             try {
-                const response = await fetch(`/api/${endpoint}`, {
+                const response = await fetch(`/${endpoint}`, {
                     ...defaultOptions,
                     ...options,
                     headers: {
@@ -676,7 +676,7 @@
             formData.append('file', selectedFile);
 
             try {
-                const response = await fetch('/api/ocr-deepseek', {
+                const response = await fetch('/ocr-deepseek', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${currentToken}`

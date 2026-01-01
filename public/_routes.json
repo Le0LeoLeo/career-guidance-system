@@ -1,6 +1,5 @@
 {
   "version": 1,
-  "include": ["/api/*"],
+  "include": ["/auth-verify", "/assessment-next", "/grades-list", "/grades-save", "/ocr-deepseek", "/ocr-parse", "/firebase-universities-search", "/target-analysis"],
   "exclude": []
 }
-
