@@ -6,6 +6,6 @@ compatibility_date = "2024-05-01"
 pages_build_output_dir = "public"
 
 # Enable Node.js compatibility for Pages Functions
-[[pages.functions.compatibility_flags]]
-nodejs_compat = true
+[pages]
+compatibility_flags = ["nodejs_compat"]
 
