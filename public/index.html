@@ -398,6 +398,8 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
+            // 檢查是否有 OAuth 回調的 token
+            handleAuthCallback();
             checkAuth();
         });
 
@@ -444,15 +446,64 @@
             }
         }
 
-        // Google 登入（需要配置 Supabase）
-        function loginWithGoogle() {
-            // 注意：這裡需要配置 Supabase Auth URL
-            // 實際使用時需要替換為你的 Supabase 專案 URL
-            alert('請配置 Supabase Auth URL。\n\n通常格式：\nhttps://YOUR_PROJECT.supabase.co/auth/v1/authorize?provider=google');
+        // 處理 OAuth 回調
+        function handleAuthCallback() {
+            // Supabase OAuth 可能使用 hash fragment (#access_token=...) 或 query string (?access_token=...)
+            let accessToken = null;
+            let error = null;
             
-            // 範例程式碼（需要根據實際 Supabase 配置調整）：
-            // const supabaseUrl = 'YOUR_SUPABASE_URL';
-            // window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`;
+            // 檢查 hash fragment (Supabase 常用方式)
+            if (window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                accessToken = hashParams.get('access_token');
+                error = hashParams.get('error');
+            }
+            
+            // 如果 hash 中沒有，檢查 query string
+            if (!accessToken && !error) {
+                const urlParams = new URLSearchParams(window.location.search);
+                accessToken = urlParams.get('access_token');
+                error = urlParams.get('error');
+            }
+            
+            if (error) {
+                showError('登入失敗: ' + error);
+                // 清除 URL 參數和 hash
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return;
+            }
+            
+            if (accessToken) {
+                // 保存 token
+                localStorage.setItem('supabase_token', accessToken);
+                // 清除 URL 參數和 hash
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // 重新檢查認證狀態
+                checkAuth();
+            }
+        }
+
+        // Google 登入
+        async function loginWithGoogle() {
+            try {
+                // 從 API 獲取 Supabase 配置
+                const response = await fetch('/api/auth-config');
+                const config = await response.json();
+                
+                if (config.error || !config.supabaseUrl) {
+                    showError('無法獲取 Supabase 配置: ' + (config.error || '未知錯誤'));
+                    return;
+                }
+                
+                // 構建 OAuth 重定向 URL
+                const redirectTo = config.redirectTo || window.location.origin;
+                const authUrl = `${config.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+                
+                // 重定向到 Supabase OAuth
+                window.location.href = authUrl;
+            } catch (error) {
+                showError('登入失敗: ' + error.message);
+            }
         }
 
         // 登出
