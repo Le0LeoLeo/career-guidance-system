@@ -271,6 +271,25 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        .version-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .version-info:hover {
+            background: rgba(102, 126, 234, 1);
+        }
     </style>
 </head>
 <body>
@@ -390,6 +409,11 @@
         </div>
     </div>
 
+    <!-- 版本號顯示 -->
+    <div class="version-info" id="versionInfo">
+        <span id="versionText">載入中...</span>
+    </div>
+
     <script>
         // 全域狀態
         let currentUser = null;
@@ -398,10 +422,37 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
+            // 設置版本號
+            setVersionInfo();
             // 檢查是否有 OAuth 回調的 token
             handleAuthCallback();
             checkAuth();
         });
+
+        // 設置版本號信息
+        function setVersionInfo() {
+            // 使用當前時間戳生成版本號（每次頁面加載都會不同，但部署後會固定）
+            const now = new Date();
+            const dateStr = now.toISOString().substring(0, 10).replace(/-/g, '.');
+            // 使用頁面加載時間作為版本標識
+            const buildTimestamp = now.getTime().toString().slice(-8);
+            const version = `v${dateStr}.${buildTimestamp}`;
+            
+            // 嘗試從 API 獲取版本號（如果有的話）
+            fetch('/api/version')
+                .then(response => response.ok ? response.json() : null)
+                .then(data => {
+                    if (data && data.version) {
+                        document.getElementById('versionText').textContent = data.version;
+                    } else {
+                        document.getElementById('versionText').textContent = `版本: ${version}`;
+                    }
+                })
+                .catch(() => {
+                    // 如果 API 不可用，使用本地生成的版本號
+                    document.getElementById('versionText').textContent = `版本: ${version}`;
+                });
+        }
 
         // 檢查認證狀態
         async function checkAuth() {
