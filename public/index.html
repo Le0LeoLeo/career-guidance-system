@@ -15,10 +15,6 @@
       --muted-color: #6c757d;
       --success-color: #28a745;
       --error-color: #dc3545;
-      --stepper-active-bg: var(--primary-color);
-      --stepper-active-color: #fff;
-      --stepper-default-bg: #e9ecef;
-      --stepper-default-color: var(--muted-color);
     }
     body { 
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif; 
@@ -53,6 +49,17 @@
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .muted { color: var(--muted-color); font-size: 0.9rem; }
+    .options { display: grid; gap: 10px; margin-top: 12px; }
+    .opt { 
+      text-align: left; 
+      width: 100%; 
+      border: 1px solid var(--border-color); 
+      border-radius: 10px; 
+      padding: 12px; 
+      background: var(--card-bg); 
+    }
+    .opt:hover { background: #f7f7f7; }
+    .opt.selected { background-color: #e6f7ff; border-color: var(--primary-color); }
     pre { 
       white-space: pre-wrap; 
       word-break: break-word; 
@@ -71,7 +78,7 @@
     }
     input[type="text"] { min-width: 280px; }
     hr { border: 0; border-top: 1px solid var(--border-color); margin: 24px 0; }
-    h1, h2, h3 { margin-top: 0; }
+    h1, h2 { margin-top: 0; }
     .hidden { display: none; }
     .loader { 
       width: 18px; height: 18px; 
@@ -84,39 +91,15 @@
       margin-left: 8px;
     }
     @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    /* --- New Header Styles --- */
-    .main-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      padding-bottom: 24px; 
-      border-bottom: 1px solid var(--border-color); 
-    }
+    .main-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--border-color); }
     .title-group h1 { margin: 0; font-size: 1.5rem; }
     .title-group p { margin: 0; font-size: 0.9rem; }
     .auth-group { display: flex; align-items: center; gap: 12px; }
-
-    /* --- New Stepper Styles --- */
-    .stepper { display: flex; justify-content: space-around; margin-bottom: 24px; }
-    .step { display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
-    .step-icon { 
-      width: 32px; height: 32px; 
-      border-radius: 50%; 
-      background-color: var(--stepper-default-bg);
-      color: var(--stepper-default-color);
-      display: flex; justify-content: center; align-items: center; 
-      font-weight: bold; 
-      transition: background-color 0.3s, color 0.3s;
-    }
-    .step-label { font-size: 0.9rem; color: var(--muted-color); margin-top: 8px; }
-    .step.active .step-icon { background-color: var(--stepper-active-bg); color: var(--stepper-active-color); }
-    .step.active .step-label { color: var(--primary-color); font-weight: bold; }
-    .step-connector { flex-grow: 1; height: 2px; background-color: var(--stepper-default-bg); margin: 16px 0; }
-    .step-container .card { display: none; }
-    .step-container .card.active { display: block; }
-    .step-navigation { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
-
+    .tab-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); }
+    .tab-link { padding: 10px 16px; cursor: pointer; border: none; background: none; border-bottom: 3px solid transparent; font-size: 1rem; color: var(--muted-color); border-radius: 0; }
+    .tab-link.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
   </style>
 </head>
 <body>
@@ -134,89 +117,72 @@
     </header>
 
     <div id="mainApp" class="hidden">
-      <!-- Stepper Indicator -->
-      <div class="stepper card">
-        <div class="step active" data-step="1">
-          <div class="step-icon">1</div>
-          <div class="step-label">個人化問卷</div>
+      <div class="tab-nav">
+        <button class="tab-link active" data-tab="assessmentCard">個人化問卷</button>
+        <button class="tab-link" data-tab="ocrCard">成績 / 時間表 OCR</button>
+        <button class="tab-link" data-tab="analysisCard">目標大學分析</button>
+      </div>
+
+      <div id="assessmentCard" class="card tab-content active">
+        <h2>個人化問卷</h2>
+        <div class="row muted" style="justify-content: space-between;">
+          <div>進度: <span id="stage"></span></div>
+          <div>信心度: <span id="conf"></span></div>
         </div>
-        <div class="step-connector"></div>
-        <div class="step" data-step="2">
-          <div class="step-icon">2</div>
-          <div class="step-label">上傳成績單</div>
+        <hr>
+        <h3 id="qPrompt">正在為您準備題目...</h3>
+        <div class="options" id="qOptions"></div>
+        <div style="margin-top: 10px;">
+          <div class="muted">可選填補充（不影響選項權重，僅作為上下文）：</div>
+          <input id="userText" type="text" placeholder="例如：我通常會..." style="width: 100%; box-sizing: border-box;" />
         </div>
-        <div class="step-connector"></div>
-        <div class="step" data-step="3">
-          <div class="step-icon">3</div>
-          <div class="step-label">目標分析</div>
+        <div style="margin-top: 12px; text-align: right;">
+          <button id="btnNext" class="primary">取得下一題</button>
+        </div>
+        <details style="margin-top: 12px;">
+            <summary class="muted">顯示/隱藏 Debug state</summary>
+            <pre id="debug"></pre>
+        </details>
+      </div>
+
+      <div id="ocrCard" class="card tab-content">
+        <h2>成績 / 時間表 OCR</h2>
+        <p class="muted">上傳圖片，系統將自動辨識並結構化您的成績資料。</p>
+        <div class="row">
+          <input id="ocrFile" type="file" accept="image/*" />
+          <button id="btnOcr" class="primary">上傳並 OCR</button>
+        </div>
+        <div id="ocrResultArea" class="hidden" style="margin-top:16px;">
+          <h4>OCR 純文字：</h4>
+          <pre id="ocrText"></pre>
+          <h4>結構化結果：</h4>
+          <pre id="ocrStructured"></pre>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnSaveOcr" class="primary">儲存此結果</button>
+            <span class="muted" id="saveOcrStatus"></span>
+          </div>
         </div>
       </div>
 
-      <!-- Step Content -->
-      <div class="step-container">
-        <div id="step-1" class="card active">
-          <h2>步驟 1: 個人化問卷</h2>
-          <p class="muted">透過一系列問題，探索您的興趣與性格特質。</p>
-          <hr>
-          <h3 id="qPrompt">正在為您準備題目...</h3>
-          <div id="qOptions"></div>
-          <div style="margin-top: 10px;">
-            <div class="muted">可選填補充（不影響選項權重，僅作為上下文）：</div>
-            <input id="userText" type="text" placeholder="例如：我通常會..." style="width: 100%; box-sizing: border-box;" />
-          </div>
-          <div class="step-navigation">
-            <button id="btnNextQuestion" class="primary">回答完畢，下一題</button>
-          </div>
-           <details style="margin-top: 12px;">
-            <summary class="muted">顯示/隱藏 Debug state</summary>
-            <pre id="debug"></pre>
-          </details>
+      <div id="analysisCard" class="card tab-content">
+        <h2>目標大學分析</h2>
+        <p class="muted">搜尋大學，選定後系統將整合您的問卷與成績結果進行綜合分析。</p>
+        <div class="row">
+          <input id="uniQuery" type="text" placeholder="輸入大學名稱關鍵字" />
+          <button id="btnUniSearch" class="primary">搜尋</button>
         </div>
-
-        <div id="step-2" class="card">
-          <h2>步驟 2: 上傳成績單 (OCR)</h2>
-          <p class="muted">上傳您的成績單或時間表圖片，系統將自動辨識並結構化資料。此步驟為選填。</p>
-          <hr>
-          <div class="row">
-            <input id="ocrFile" type="file" accept="image/*" />
-            <button id="btnOcr" class="primary">上傳並 OCR</button>
-          </div>
-          <div id="ocrResultArea" class="hidden" style="margin-top:16px;">
-            <h4>OCR 純文字：</h4>
-            <pre id="ocrText"></pre>
-            <h4>結構化結果：</h4>
-            <pre id="ocrStructured"></pre>
-            <div class="row" style="margin-top:10px;">
-              <button id="btnSaveOcr" class="primary">儲存此結果</button>
-              <span class="muted" id="saveOcrStatus"></span>
-            </div>
-          </div>
-          <div class="step-navigation">
-            <button id="btnGoToStep3" class="primary">完成此步，前往分析</button>
-          </div>
+        <div style="margin-top:16px;">
+          <div class="muted">搜尋結果：</div>
+          <div id="uniResults" class="options"></div>
         </div>
-
-        <div id="step-3" class="card">
-          <h2>步驟 3: 目標大學分析</h2>
-          <p class="muted">搜尋您感興趣的大學，系統將整合您的問卷與成績結果進行綜合分析。</p>
-          <hr>
-          <div class="row">
-            <input id="uniQuery" type="text" placeholder="輸入大學名稱關鍵字" />
-            <button id="btnUniSearch" class="primary">搜尋</button>
-          </div>
-          <div style="margin-top:16px;">
-            <div class="muted">搜尋結果：</div>
-            <div id="uniResults"></div>
-          </div>
-          <hr>
-          <div class="row">
-            <button id="btnRunAnalysis" class="primary">開始分析</button>
-            <span class="muted" id="analysisStatus">請先從上方搜尋並選擇一間大學</span>
-          </div>
-          <div id="analysisResultArea" class="hidden" style="margin-top:16px;">
-            <h4>分析結果：</h4>
-            <pre id="analysisOut"></pre>
-          </div>
+        <hr>
+        <div class="row">
+          <button id="btnRunAnalysis" class="primary">開始分析</button>
+          <span class="muted" id="analysisStatus">請先從上方搜尋並選擇一間大學</span>
+        </div>
+        <div id="analysisResultArea" class="hidden" style="margin-top:16px;">
+          <h4>分析結果：</h4>
+          <pre id="analysisOut"></pre>
         </div>
       </div>
     </div>
@@ -228,24 +194,20 @@
     const SUPABASE_ANON_KEY = "sb_publishable_iNkjfB2_8AMe-gw8QroPhw_2RljOBgO";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- Element mapping ---
+    // Element mapping
     const elAuthStatus = document.getElementById("authStatus");
     const btnLogin = document.getElementById("btnLogin");
     const btnLogout = document.getElementById("btnLogout");
     const mainApp = document.getElementById("mainApp");
-
-    // Stepper UI
-    const stepper = document.querySelector('.stepper');
-    const stepContents = document.querySelectorAll('.step-container .card');
-
-    // Step 1: Assessment
+    
+    const elStage = document.getElementById("stage");
+    const elConf = document.getElementById("conf");
     const elPrompt = document.getElementById("qPrompt");
     const elOptions = document.getElementById("qOptions");
     const elDebug = document.getElementById("debug");
     const elUserText = document.getElementById("userText");
-    const btnNextQuestion = document.getElementById("btnNextQuestion");
+    const btnNext = document.getElementById("btnNext");
 
-    // Step 2: OCR
     const elOcrFile = document.getElementById("ocrFile");
     const btnOcr = document.getElementById("btnOcr");
     const elOcrResultArea = document.getElementById("ocrResultArea");
@@ -253,9 +215,7 @@
     const elOcrStructured = document.getElementById("ocrStructured");
     const btnSaveOcr = document.getElementById("btnSaveOcr");
     const elSaveOcrStatus = document.getElementById("saveOcrStatus");
-    const btnGoToStep3 = document.getElementById('btnGoToStep3');
 
-    // Step 3: Analysis
     const elUniQuery = document.getElementById("uniQuery");
     const btnUniSearch = document.getElementById("btnUniSearch");
     const elUniResults = document.getElementById("uniResults");
@@ -267,45 +227,35 @@
     let lastQuestion = null;
     let lastOcrResult = null;
     let selectedUniversity = null;
-    let currentStep = 1;
 
     // --- Helper Functions for UI --- 
     function setLoading(button, isLoading) {
       const originalText = button.dataset.originalText || button.innerText;
       if (isLoading) {
-        if (!button.dataset.originalText) {
-            button.dataset.originalText = button.innerText;
-        }
+        if (!button.dataset.originalText) button.dataset.originalText = button.innerText;
         button.disabled = true;
         button.innerHTML = originalText + ' <span class="loader"></span>';
       } else {
         button.disabled = false;
-        button.innerText = originalText;
-        delete button.dataset.originalText;
+        if(button.dataset.originalText) button.innerText = button.dataset.originalText;
+        const loader = button.querySelector('.loader');
+        if (loader) loader.remove();
       }
     }
 
-    function goToStep(stepNumber) {
-        currentStep = stepNumber;
-        // Update stepper indicator
-        document.querySelectorAll('.step').forEach((stepEl, index) => {
-            if ((index + 1) === stepNumber) {
-                stepEl.classList.add('active');
-            } else {
-                stepEl.classList.remove('active');
-            }
+    async function callApi(endpoint, payload) {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+            body: JSON.stringify(payload),
         });
-        // Show correct card
-        stepContents.forEach(card => {
-            if (card.id === `step-${stepNumber}`) {
-                card.classList.add('active');
-            } else {
-                card.classList.remove('active');
-            }
-        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "API call failed");
+        return data;
     }
 
-    // --- Core Logic (adapted for stepper) ---
     async function getAccessToken() {
       const { data } = await sb.auth.getSession();
       return data?.session?.access_token || null;
@@ -326,6 +276,8 @@
     }
 
     function renderState(state) {
+      elStage.textContent = state?.current_stage || "-";
+      elConf.textContent = (state?.confidence_score ?? 0).toFixed(2);
       elDebug.textContent = JSON.stringify(state, null, 2);
     }
 
@@ -335,82 +287,55 @@
       elOptions.innerHTML = "";
       q.options.forEach((opt, idx) => {
         const btn = document.createElement("button");
-        btn.className = "opt"; // Using a generic class for options
+        btn.className = "opt";
         btn.textContent = `${idx + 1}. ${opt.text}`;
-        btn.onclick = () => {
-            // Visually select the option
-            document.querySelectorAll('#qOptions .opt').forEach(b => b.style.background = '');
-            btn.style.background = '#e6f7ff';
-            // Store selected answer
-            lastQuestion.selected_index = idx;
-            lastQuestion.selected_option = opt;
-        };
+        btn.onclick = () => submitAnswer(idx, opt);
         elOptions.appendChild(btn);
       });
     }
 
     async function fetchNextQuestion(payload = {}) {
-      setLoading(btnNextQuestion, true);
+      setLoading(btnNext, true);
       try {
-        const token = await getAccessToken();
-        if (!token) throw new Error("Not logged in");
-
-        const res = await fetch("/.netlify/functions/assessment-next", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed");
+        const data = await callApi("/.netlify/functions/assessment-next", payload);
         elUserText.value = "";
 
         if (data.done) {
           renderState(data.state);
-          elPrompt.textContent = "問卷已全部完成！";
-          elOptions.innerHTML = "<p style='color:var(--success-color)'>您可以進入下一步了。</p>";
-          btnNextQuestion.textContent = "完成問卷，前往下一步";
-          btnNextQuestion.onclick = () => goToStep(2);
+          elPrompt.textContent = "問卷已收斂完成。";
+          elOptions.innerHTML = "";
+          btnNext.classList.add('hidden');
           return;
         }
-
         renderState(data.state);
         renderQuestion(data.question);
       } finally {
-        setLoading(btnNextQuestion, false);
+        setLoading(btnNext, false);
       }
     }
 
-    btnNextQuestion.onclick = async () => {
-        if (!lastQuestion || lastQuestion.selected_index === undefined) {
-            alert('請先選擇一個選項');
-            return;
-        }
+    async function submitAnswer(selectedIndex, selectedOption) {
+        if (!lastQuestion) throw new Error("No question");
         const payload = {
             answer: {
                 question_id: lastQuestion.question_id,
-                selected_index: lastQuestion.selected_index,
-                selected_option: lastQuestion.selected_option,
+                selected_index: selectedIndex,
+                selected_option: selectedOption,
                 user_text: elUserText.value || ""
             }
         };
         await fetchNextQuestion(payload);
+    }
+
+    btnLogin.onclick = async () => {
+      await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin }
+      });
     };
 
-    btnGoToStep3.onclick = () => goToStep(3);
-
-    async function callApi(endpoint, payload) {
-        const token = await getAccessToken();
-        if (!token) throw new Error("Not logged in");
-        const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-            body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "API call failed");
-        return data;
-    }
+    btnLogout.onclick = () => sb.auth.signOut();
+    btnNext.onclick = () => fetchNextQuestion({});
 
     async function uploadToSupabase(file) {
       const { data: sess } = await sb.auth.getSession();
@@ -436,7 +361,6 @@
         if (!file) throw new Error("請先選擇圖片");
 
         const uploaded = await uploadToSupabase(file);
-        
         const ocrData = await callApi("/.netlify/functions/ocr-deepseek", { bucket: uploaded.bucket, file_path: uploaded.file_path });
         const ocrText = ocrData.ocr_text || "";
         elOcrText.textContent = ocrText || "(辨識為空)";
@@ -502,8 +426,8 @@
           btn.textContent = `${uni.name} (${uni.id})`;
           btn.onclick = () => {
             selectedUniversity = uni;
-            document.querySelectorAll("#uniResults .opt").forEach(el => el.style.background = '');
-            btn.style.background = '#e6f7ff';
+            document.querySelectorAll("#uniResults .opt").forEach(el => el.classList.remove('selected'));
+            btn.classList.add('selected');
             elAnalysisStatus.textContent = `已選擇: ${uni.name}`;
           };
           elUniResults.appendChild(btn);
@@ -540,7 +464,19 @@
       }
     };
 
-    // --- Auth State Change Handler ---
+    const tabLinks = document.querySelectorAll('.tab-link');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        const tabId = link.getAttribute('data-tab');
+        tabLinks.forEach(item => item.classList.remove('active'));
+        link.classList.add('active');
+        tabContents.forEach(content => {
+          content.id === tabId ? content.classList.add('active') : content.classList.remove('active');
+        });
+      });
+    });
+
     function handleAuthStateChange(session) {
         if (session?.user?.email) {
             elAuthStatus.textContent = "已登入：" + session.user.email;
@@ -552,22 +488,18 @@
             btnLogin.classList.remove('hidden');
             btnLogout.classList.add('hidden');
             mainApp.classList.add('hidden');
-            goToStep(1); // Reset to step 1 on logout
         }
     }
 
     (async function() {
-      sb.auth.onAuthStateChange((event, session) => {
-        handleAuthStateChange(session);
-      });
-
+      sb.auth.onAuthStateChange((event, session) => handleAuthStateChange(session));
       const { data } = await sb.auth.getSession();
       handleAuthStateChange(data.session);
       
       if (data?.session?.user) {
         const gate = await verifyGate();
         if (gate.ok) {
-          await fetchNextQuestion({}); // Fetch first question
+          await fetchNextQuestion({});
         } else {
           alert("此帳號不允許使用：" + (gate.error || "Denied"));
           await sb.auth.signOut();
