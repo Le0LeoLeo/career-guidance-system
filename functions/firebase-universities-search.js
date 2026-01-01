@@ -43,15 +43,15 @@ async function verifyAndGetUser(request, env) {
   return { ok: true, user: { id: userId, email } };
 }
 
-let _admin = null;
-function getFirebaseAdmin(env) {
-  if (_admin) return _admin;
-  // eslint-disable-next-line global-require
-  const admin = require("firebase-admin");
+const admin = require("firebase-admin");
 
-  if (admin.apps && admin.apps.length) {
-    _admin = admin;
-    return _admin;
+let _admin_initialized = false;
+function getFirebaseAdmin(env) {
+  if (_admin_initialized) return admin;
+
+  if (admin.apps && admin.apps.length > 0) {
+    _admin_initialized = true;
+    return admin;
   }
 
   const b64 = env.FIREBASE_SERVICE_ACCOUNT_B64;
