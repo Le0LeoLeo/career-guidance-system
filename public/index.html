@@ -5,135 +5,307 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>校園升學與職涯助手</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif; margin: 24px; line-height: 1.5; }
+    :root {
+      --primary-color: #007bff;
+      --primary-hover: #0056b3;
+      --border-color: #dee2e6;
+      --card-bg: #ffffff;
+      --body-bg: #f8f9fa;
+      --text-color: #212529;
+      --muted-color: #6c757d;
+      --success-color: #28a745;
+      --error-color: #dc3545;
+      --stepper-active-bg: var(--primary-color);
+      --stepper-active-color: #fff;
+      --stepper-default-bg: #e9ecef;
+      --stepper-default-color: var(--muted-color);
+    }
+    body { 
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif; 
+      margin: 0;
+      background-color: var(--body-bg);
+      color: var(--text-color);
+      line-height: 1.6;
+    }
+    .container { max-width: 800px; margin: 24px auto; padding: 0 24px; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    button { padding: 10px 14px; cursor: pointer; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin-top: 14px; }
-    .muted { color: #666; font-size: 13px; }
-    .options { display: grid; gap: 10px; margin-top: 12px; }
-    .opt { text-align: left; width: 100%; border: 1px solid #ccc; border-radius: 10px; padding: 12px; background: #fff; }
-    .opt:hover { background: #f7f7f7; }
-    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #d7e1ff; padding: 12px; border-radius: 10px; overflow:auto; }
-    input[type="text"] { padding: 10px; min-width: 280px; }
+    button { 
+      padding: 10px 16px; 
+      cursor: pointer; 
+      border-radius: 8px; 
+      border: 1px solid transparent;
+      font-size: 1rem;
+      transition: background-color 0.2s ease;
+    }
+    button.primary { 
+      background-color: var(--primary-color); 
+      color: white; 
+      border-color: var(--primary-color);
+    }
+    button.primary:hover { background-color: var(--primary-hover); }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    .card { 
+      border: 1px solid var(--border-color); 
+      border-radius: 12px; 
+      padding: 24px; 
+      margin-top: 24px; 
+      background-color: var(--card-bg);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    .muted { color: var(--muted-color); font-size: 0.9rem; }
+    pre { 
+      white-space: pre-wrap; 
+      word-break: break-word; 
+      background: #0b1020; 
+      color: #d7e1ff; 
+      padding: 16px; 
+      border-radius: 10px; 
+      overflow: auto; 
+      max-height: 300px;
+    }
+    input[type="text"], input[type="file"] { 
+      padding: 10px; 
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    input[type="text"] { min-width: 280px; }
+    hr { border: 0; border-top: 1px solid var(--border-color); margin: 24px 0; }
+    h1, h2, h3 { margin-top: 0; }
+    .hidden { display: none; }
+    .loader { 
+      width: 18px; height: 18px; 
+      border: 2px solid #FFF; 
+      border-bottom-color: transparent; 
+      border-radius: 50%; 
+      display: inline-block; 
+      box-sizing: border-box; 
+      animation: rotation 1s linear infinite; 
+      margin-left: 8px;
+    }
+    @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* --- New Header Styles --- */
+    .main-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      padding-bottom: 24px; 
+      border-bottom: 1px solid var(--border-color); 
+    }
+    .title-group h1 { margin: 0; font-size: 1.5rem; }
+    .title-group p { margin: 0; font-size: 0.9rem; }
+    .auth-group { display: flex; align-items: center; gap: 12px; }
+
+    /* --- New Stepper Styles --- */
+    .stepper { display: flex; justify-content: space-around; margin-bottom: 24px; }
+    .step { display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
+    .step-icon { 
+      width: 32px; height: 32px; 
+      border-radius: 50%; 
+      background-color: var(--stepper-default-bg);
+      color: var(--stepper-default-color);
+      display: flex; justify-content: center; align-items: center; 
+      font-weight: bold; 
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .step-label { font-size: 0.9rem; color: var(--muted-color); margin-top: 8px; }
+    .step.active .step-icon { background-color: var(--stepper-active-bg); color: var(--stepper-active-color); }
+    .step.active .step-label { color: var(--primary-color); font-weight: bold; }
+    .step-connector { flex-grow: 1; height: 2px; background-color: var(--stepper-default-bg); margin: 16px 0; }
+    .step-container .card { display: none; }
+    .step-container .card.active { display: block; }
+    .step-navigation { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
   </style>
 </head>
 <body>
-  <h1>校園升學與職涯助手</h1>
-
-  <div class="card">
-    <div class="row">
-      <button id="btnLogin">Google 登入</button>
-      <button id="btnLogout">登出</button>
-      <span class="muted" id="authStatus">未登入</span>
-    </div>
-    <div class="muted" style="margin-top:10px;">
-      前端只負責登入拿到 access_token，所有權限驗證/AI 出題都在 Netlify Functions。
-    </div>
-  </div>
-
-  <div class="card" id="quizCard" style="display:none;">
-    <hr style="margin:14px 0;" />
-
-    <h2 style="margin:0 0 8px 0;">成績 / 時間表 OCR</h2>
-    <div class="muted">上傳圖片到 Supabase Storage（bucket: uploads），再用 DeepSeek-OCR 辨識，最後整理成結構化 JSON。</div>
-
-    <div style="margin-top:10px;" class="row">
-      <input id="ocrFile" type="file" accept="image/*" />
-      <button id="btnOcr">上傳並 OCR</button>
-    </div>
-
-    <div style="margin-top:10px;">
-      <div class="muted">OCR 純文字：</div>
-      <pre id="ocrText"></pre>
-    </div>
-
-    <div style="margin-top:10px;">
-      <div class="muted">結構化結果（可讓用戶手動確認/補充分數）：</div>
-      <pre id="ocrStructured"></pre>
-      <div class="row" style="margin-top:10px;">
-        <button id="btnSaveOcr">儲存此結果</button>
-        <span class="muted" id="saveOcrStatus"></span>
+  <div class="container">
+    <header class="main-header">
+      <div class="title-group">
+        <h1>校園升學與職涯助手</h1>
+        <p class="muted">結合 AI 問卷、成績 OCR 與大學資料，提供個人化分析</p>
       </div>
-    </div>
-
-    <h2 style="margin:14px 0 8px 0;">目標大學分析</h2>
-    <div class="muted">搜尋 Firebase 大學資料（server-side），選定後整合你的成績與問卷結果做分析。</div>
-
-    <div class="row" style="margin-top:10px;">
-      <input id="uniQuery" type="text" placeholder="輸入大學名稱關鍵字" />
-      <button id="btnUniSearch">搜尋</button>
-    </div>
-
-    <div style="margin-top:10px;">
-      <div class="muted">搜尋結果：</div>
-      <div id="uniResults" class="options"></div>
-    </div>
-
-    <div style="margin-top:10px;" class="row">
-      <button id="btnRunAnalysis">開始分析</button>
-      <span class="muted" id="analysisStatus"></span>
-    </div>
-
-    <div style="margin-top:10px;">
-      <div class="muted">分析結果（JSON）：</div>
-      <pre id="analysisOut"></pre>
-    </div>
-
-    <hr style="margin:14px 0;" />
-
-    <div class="row" style="justify-content: space-between;">
-      <div>
-        <div class="muted">Stage: <span id="stage"></span> ／ Confidence: <span id="conf"></span></div>
+      <div class="auth-group">
+        <span class="muted" id="authStatus">未登入</span>
+        <button id="btnLogin" class="primary">Google 登入</button>
+        <button id="btnLogout" class="hidden">登出</button>
       </div>
-      <button id="btnNext">取得下一題</button>
-    </div>
+    </header>
 
-    <h2 id="qPrompt" style="margin-top:10px;"></h2>
-    <div class="options" id="qOptions"></div>
+    <div id="mainApp" class="hidden">
+      <!-- Stepper Indicator -->
+      <div class="stepper card">
+        <div class="step active" data-step="1">
+          <div class="step-icon">1</div>
+          <div class="step-label">個人化問卷</div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="2">
+          <div class="step-icon">2</div>
+          <div class="step-label">上傳成績單</div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="3">
+          <div class="step-icon">3</div>
+          <div class="step-label">目標分析</div>
+        </div>
+      </div>
 
-    <div style="margin-top: 10px;">
-      <div class="muted">可選填補充（不影響選項權重，僅作為上下文）：</div>
-      <input id="userText" type="text" placeholder="例如：我通常會..." />
-    </div>
+      <!-- Step Content -->
+      <div class="step-container">
+        <div id="step-1" class="card active">
+          <h2>步驟 1: 個人化問卷</h2>
+          <p class="muted">透過一系列問題，探索您的興趣與性格特質。</p>
+          <hr>
+          <h3 id="qPrompt">正在為您準備題目...</h3>
+          <div id="qOptions"></div>
+          <div style="margin-top: 10px;">
+            <div class="muted">可選填補充（不影響選項權重，僅作為上下文）：</div>
+            <input id="userText" type="text" placeholder="例如：我通常會..." style="width: 100%; box-sizing: border-box;" />
+          </div>
+          <div class="step-navigation">
+            <button id="btnNextQuestion" class="primary">回答完畢，下一題</button>
+          </div>
+           <details style="margin-top: 12px;">
+            <summary class="muted">顯示/隱藏 Debug state</summary>
+            <pre id="debug"></pre>
+          </details>
+        </div>
 
-    <div style="margin-top: 12px;">
-      <div class="muted">Debug state（前端僅顯示 server 回傳結果）：</div>
-      <pre id="debug"></pre>
+        <div id="step-2" class="card">
+          <h2>步驟 2: 上傳成績單 (OCR)</h2>
+          <p class="muted">上傳您的成績單或時間表圖片，系統將自動辨識並結構化資料。此步驟為選填。</p>
+          <hr>
+          <div class="row">
+            <input id="ocrFile" type="file" accept="image/*" />
+            <button id="btnOcr" class="primary">上傳並 OCR</button>
+          </div>
+          <div id="ocrResultArea" class="hidden" style="margin-top:16px;">
+            <h4>OCR 純文字：</h4>
+            <pre id="ocrText"></pre>
+            <h4>結構化結果：</h4>
+            <pre id="ocrStructured"></pre>
+            <div class="row" style="margin-top:10px;">
+              <button id="btnSaveOcr" class="primary">儲存此結果</button>
+              <span class="muted" id="saveOcrStatus"></span>
+            </div>
+          </div>
+          <div class="step-navigation">
+            <button id="btnGoToStep3" class="primary">完成此步，前往分析</button>
+          </div>
+        </div>
+
+        <div id="step-3" class="card">
+          <h2>步驟 3: 目標大學分析</h2>
+          <p class="muted">搜尋您感興趣的大學，系統將整合您的問卷與成績結果進行綜合分析。</p>
+          <hr>
+          <div class="row">
+            <input id="uniQuery" type="text" placeholder="輸入大學名稱關鍵字" />
+            <button id="btnUniSearch" class="primary">搜尋</button>
+          </div>
+          <div style="margin-top:16px;">
+            <div class="muted">搜尋結果：</div>
+            <div id="uniResults"></div>
+          </div>
+          <hr>
+          <div class="row">
+            <button id="btnRunAnalysis" class="primary">開始分析</button>
+            <span class="muted" id="analysisStatus">請先從上方搜尋並選擇一間大學</span>
+          </div>
+          <div id="analysisResultArea" class="hidden" style="margin-top:16px;">
+            <h4>分析結果：</h4>
+            <pre id="analysisOut"></pre>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script>
     const SUPABASE_URL = "https://spsvuybwaciyfwxmvuxh.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_iNkjfB2_8AMe-gw8QroPhw_2RljOBgO";
-
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // --- Element mapping ---
     const elAuthStatus = document.getElementById("authStatus");
-    const quizCard = document.getElementById("quizCard");
-    const elStage = document.getElementById("stage");
-    const elConf = document.getElementById("conf");
+    const btnLogin = document.getElementById("btnLogin");
+    const btnLogout = document.getElementById("btnLogout");
+    const mainApp = document.getElementById("mainApp");
+
+    // Stepper UI
+    const stepper = document.querySelector('.stepper');
+    const stepContents = document.querySelectorAll('.step-container .card');
+
+    // Step 1: Assessment
     const elPrompt = document.getElementById("qPrompt");
     const elOptions = document.getElementById("qOptions");
     const elDebug = document.getElementById("debug");
     const elUserText = document.getElementById("userText");
+    const btnNextQuestion = document.getElementById("btnNextQuestion");
 
+    // Step 2: OCR
     const elOcrFile = document.getElementById("ocrFile");
+    const btnOcr = document.getElementById("btnOcr");
+    const elOcrResultArea = document.getElementById("ocrResultArea");
     const elOcrText = document.getElementById("ocrText");
     const elOcrStructured = document.getElementById("ocrStructured");
+    const btnSaveOcr = document.getElementById("btnSaveOcr");
     const elSaveOcrStatus = document.getElementById("saveOcrStatus");
+    const btnGoToStep3 = document.getElementById('btnGoToStep3');
+
+    // Step 3: Analysis
     const elUniQuery = document.getElementById("uniQuery");
+    const btnUniSearch = document.getElementById("btnUniSearch");
     const elUniResults = document.getElementById("uniResults");
+    const btnRunAnalysis = document.getElementById("btnRunAnalysis");
     const elAnalysisStatus = document.getElementById("analysisStatus");
+    const elAnalysisResultArea = document.getElementById("analysisResultArea");
     const elAnalysisOut = document.getElementById("analysisOut");
 
     let lastQuestion = null;
     let lastOcrResult = null;
-    let lastUploadedFile = null;
     let selectedUniversity = null;
+    let currentStep = 1;
 
+    // --- Helper Functions for UI --- 
+    function setLoading(button, isLoading) {
+      const originalText = button.dataset.originalText || button.innerText;
+      if (isLoading) {
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerText;
+        }
+        button.disabled = true;
+        button.innerHTML = originalText + ' <span class="loader"></span>';
+      } else {
+        button.disabled = false;
+        button.innerText = originalText;
+        delete button.dataset.originalText;
+      }
+    }
 
+    function goToStep(stepNumber) {
+        currentStep = stepNumber;
+        // Update stepper indicator
+        document.querySelectorAll('.step').forEach((stepEl, index) => {
+            if ((index + 1) === stepNumber) {
+                stepEl.classList.add('active');
+            } else {
+                stepEl.classList.remove('active');
+            }
+        });
+        // Show correct card
+        stepContents.forEach(card => {
+            if (card.id === `step-${stepNumber}`) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+    }
+
+    // --- Core Logic (adapted for stepper) ---
     async function getAccessToken() {
       const { data } = await sb.auth.getSession();
       return data?.session?.access_token || null;
@@ -154,8 +326,6 @@
     }
 
     function renderState(state) {
-      elStage.textContent = state?.current_stage || "-";
-      elConf.textContent = (state?.confidence_score ?? 0).toFixed(2);
       elDebug.textContent = JSON.stringify(state, null, 2);
     }
 
@@ -165,92 +335,82 @@
       elOptions.innerHTML = "";
       q.options.forEach((opt, idx) => {
         const btn = document.createElement("button");
-        btn.className = "opt";
+        btn.className = "opt"; // Using a generic class for options
         btn.textContent = `${idx + 1}. ${opt.text}`;
-        btn.onclick = () => submitAnswer(idx, opt);
+        btn.onclick = () => {
+            // Visually select the option
+            document.querySelectorAll('#qOptions .opt').forEach(b => b.style.background = '');
+            btn.style.background = '#e6f7ff';
+            // Store selected answer
+            lastQuestion.selected_index = idx;
+            lastQuestion.selected_option = opt;
+        };
         elOptions.appendChild(btn);
       });
     }
 
-    async function fetchNextQuestion() {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not logged in");
-
-      const res = await fetch("/.netlify/functions/assessment-next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify({}),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed");
-      if (data.done) {
-        renderState(data.state);
-        elPrompt.textContent = "問卷已收斂完成。";
-        elOptions.innerHTML = "";
-        return;
-      }
-      renderState(data.state);
-      renderQuestion(data.question);
-    }
-
-    async function submitAnswer(selectedIndex, selectedOption) {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not logged in");
-      if (!lastQuestion) throw new Error("No question");
-
-      const payload = {
-        answer: {
-          question_id: lastQuestion.question_id,
-          selected_index: selectedIndex,
-          selected_option: selectedOption,
-          user_text: elUserText.value || ""
-        }
-      };
-
-      const res = await fetch("/.netlify/functions/assessment-next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed");
-      elUserText.value = "";
-
-      if (data.done) {
-        renderState(data.state);
-        elPrompt.textContent = "問卷已收斂完成。";
-        elOptions.innerHTML = "";
-        return;
-      }
-
-      renderState(data.state);
-      renderQuestion(data.question);
-    }
-
-    document.getElementById("btnLogin").onclick = async () => {
-      await sb.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin
-        }
-      });
-    };
-
-    document.getElementById("btnLogout").onclick = async () => {
-      await sb.auth.signOut();
-      elAuthStatus.textContent = "未登入";
-      quizCard.style.display = "none";
-    };
-
-    document.getElementById("btnNext").onclick = async () => {
+    async function fetchNextQuestion(payload = {}) {
+      setLoading(btnNextQuestion, true);
       try {
-        await fetchNextQuestion();
-      } catch (e) {
-        alert(String(e.message || e));
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+
+        const res = await fetch("/.netlify/functions/assessment-next", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed");
+        elUserText.value = "";
+
+        if (data.done) {
+          renderState(data.state);
+          elPrompt.textContent = "問卷已全部完成！";
+          elOptions.innerHTML = "<p style='color:var(--success-color)'>您可以進入下一步了。</p>";
+          btnNextQuestion.textContent = "完成問卷，前往下一步";
+          btnNextQuestion.onclick = () => goToStep(2);
+          return;
+        }
+
+        renderState(data.state);
+        renderQuestion(data.question);
+      } finally {
+        setLoading(btnNextQuestion, false);
       }
+    }
+
+    btnNextQuestion.onclick = async () => {
+        if (!lastQuestion || lastQuestion.selected_index === undefined) {
+            alert('請先選擇一個選項');
+            return;
+        }
+        const payload = {
+            answer: {
+                question_id: lastQuestion.question_id,
+                selected_index: lastQuestion.selected_index,
+                selected_option: lastQuestion.selected_option,
+                user_text: elUserText.value || ""
+            }
+        };
+        await fetchNextQuestion(payload);
     };
+
+    btnGoToStep3.onclick = () => goToStep(3);
+
+    async function callApi(endpoint, payload) {
+        const token = await getAccessToken();
+        if (!token) throw new Error("Not logged in");
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "API call failed");
+        return data;
+    }
 
     async function uploadToSupabase(file) {
       const { data: sess } = await sb.auth.getSession();
@@ -268,96 +428,56 @@
       return { bucket: "uploads", file_path: path };
     }
 
-    async function callDeepseekOcr(bucket, filePath) {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not logged in");
-
-      const res = await fetch("/.netlify/functions/ocr-deepseek", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify({ bucket, file_path: filePath }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "OCR failed");
-      return data.ocr_text || "";
-    }
-
-    async function callOcrParse(ocrText) {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not logged in");
-
-      const res = await fetch("/.netlify/functions/ocr-parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify({ ocr_text: ocrText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Parse failed");
-      return data;
-    }
-
-    document.getElementById("btnOcr").onclick = async () => {
+    btnOcr.onclick = async () => {
+      setLoading(btnOcr, true);
       try {
-        elOcrText.textContent = "";
-        elOcrStructured.textContent = "";
-
+        elOcrResultArea.classList.add("hidden");
         const file = elOcrFile.files && elOcrFile.files[0];
         if (!file) throw new Error("請先選擇圖片");
 
-        const gate = await verifyGate();
-        if (!gate.ok) throw new Error("未通過權限驗證");
-
-        elOcrText.textContent = "上傳中...";
         const uploaded = await uploadToSupabase(file);
-        lastUploadedFile = uploaded;
+        
+        const ocrData = await callApi("/.netlify/functions/ocr-deepseek", { bucket: uploaded.bucket, file_path: uploaded.file_path });
+        const ocrText = ocrData.ocr_text || "";
+        elOcrText.textContent = ocrText || "(辨識為空)";
 
-        elOcrText.textContent = "OCR 辨識中...";
-        const ocrText = await callDeepseekOcr(uploaded.bucket, uploaded.file_path);
-        elOcrText.textContent = ocrText || "(空)";
-
-        elOcrStructured.textContent = "整理中...";
-        const parsed = await callOcrParse(ocrText);
-        lastOcrResult = { uploaded, ocrText, parsed };
-        elOcrStructured.textContent = JSON.stringify(parsed.items || [], null, 2);
+        const parsedData = await callApi("/.netlify/functions/ocr-parse", { ocr_text: ocrText });
+        lastOcrResult = { uploaded, ocrText, parsed: parsedData };
+        elOcrStructured.textContent = JSON.stringify(parsedData.items || [], null, 2);
+        
+        elOcrResultArea.classList.remove("hidden");
         elSaveOcrStatus.textContent = "";
       } catch (e) {
         alert(String(e.message || e));
+      } finally {
+        setLoading(btnOcr, false);
       }
     };
 
-    async function saveOcrResult() {
+    btnSaveOcr.onclick = async () => {
       if (!lastOcrResult) {
         elSaveOcrStatus.textContent = "請先上傳並 OCR 圖片";
-        return false;
+        return;
       }
+      setLoading(btnSaveOcr, true);
       try {
         elSaveOcrStatus.textContent = "儲存中...";
-        const token = await getAccessToken();
-        if (!token) throw new Error("Not logged in");
-
-        const res = await fetch("/.netlify/functions/grades-save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify({
+        const payload = {
             storage_bucket: lastOcrResult.uploaded.bucket,
             storage_path: lastOcrResult.uploaded.file_path,
             ocr_text: lastOcrResult.ocrText,
             extracted_items: lastOcrResult.parsed.items || [],
             source_type: "score_sheet"
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Save failed");
-        
+        };
+        await callApi("/.netlify/functions/grades-save", payload);
         elSaveOcrStatus.textContent = "✓ 已儲存";
         setTimeout(() => { elSaveOcrStatus.textContent = ""; }, 3000);
-        return true;
       } catch (e) {
         elSaveOcrStatus.textContent = "儲存失敗: " + (e.message || e);
-        return false;
+      } finally {
+        setLoading(btnSaveOcr, false);
       }
-    }
+    };
 
     async function searchUniversities() {
       const query = (elUniQuery.value || "").trim();
@@ -365,20 +485,10 @@
         elUniResults.innerHTML = "<div class='muted'>請輸入搜尋關鍵字</div>";
         return;
       }
-
+      setLoading(btnUniSearch, true);
       try {
         elUniResults.innerHTML = "<div class='muted'>搜尋中...</div>";
-        const token = await getAccessToken();
-        if (!token) throw new Error("Not logged in");
-
-        const res = await fetch("/.netlify/functions/firebase-universities-search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify({ q: query }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Search failed");
+        const data = await callApi("/.netlify/functions/firebase-universities-search", { q: query });
 
         if (!data.rows || data.rows.length === 0) {
           elUniResults.innerHTML = "<div class='muted'>沒有找到符合的大學</div>";
@@ -386,100 +496,84 @@
         }
 
         elUniResults.innerHTML = "";
-        data.rows.forEach((uni, idx) => {
+        data.rows.forEach((uni) => {
           const btn = document.createElement("button");
           btn.className = "opt";
           btn.textContent = `${uni.name} (${uni.id})`;
           btn.onclick = () => {
             selectedUniversity = uni;
-            document.querySelectorAll("#uniResults .opt").forEach(el => {
-              el.style.background = "#fff";
-            });
-            btn.style.background = "#e6f7ff";
+            document.querySelectorAll("#uniResults .opt").forEach(el => el.style.background = '');
+            btn.style.background = '#e6f7ff';
             elAnalysisStatus.textContent = `已選擇: ${uni.name}`;
           };
           elUniResults.appendChild(btn);
         });
       } catch (e) {
         elUniResults.innerHTML = `<div class='muted'>錯誤: ${e.message || e}</div>`;
+      } finally {
+        setLoading(btnUniSearch, false);
       }
     }
 
-    async function runTargetAnalysis() {
+    elUniQuery.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") searchUniversities();
+    });
+    btnUniSearch.onclick = searchUniversities;
+
+    btnRunAnalysis.onclick = async () => {
       if (!selectedUniversity) {
         elAnalysisStatus.textContent = "請先選擇一間大學";
         return;
       }
-
+      setLoading(btnRunAnalysis, true);
+      elAnalysisResultArea.classList.add('hidden');
       try {
         elAnalysisStatus.textContent = "分析中...";
-        elAnalysisOut.textContent = "";
-        
-        const token = await getAccessToken();
-        if (!token) throw new Error("Not logged in");
-
-        const res = await fetch("/.netlify/functions/target-analysis", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify({
-            university: selectedUniversity,
-            notes: ""
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Analysis failed");
-        
+        const data = await callApi("/.netlify/functions/target-analysis", { university: selectedUniversity, notes: "" });
         elAnalysisOut.textContent = JSON.stringify(data.analysis || {}, null, 2);
+        elAnalysisResultArea.classList.remove('hidden');
         elAnalysisStatus.textContent = "✓ 分析完成";
       } catch (e) {
         elAnalysisStatus.textContent = `分析失敗: ${e.message || e}`;
-        elAnalysisOut.textContent = "";
+      } finally {
+        setLoading(btnRunAnalysis, false);
       }
+    };
+
+    // --- Auth State Change Handler ---
+    function handleAuthStateChange(session) {
+        if (session?.user?.email) {
+            elAuthStatus.textContent = "已登入：" + session.user.email;
+            btnLogin.classList.add('hidden');
+            btnLogout.classList.remove('hidden');
+            mainApp.classList.remove('hidden');
+        } else {
+            elAuthStatus.textContent = "未登入";
+            btnLogin.classList.remove('hidden');
+            btnLogout.classList.add('hidden');
+            mainApp.classList.add('hidden');
+            goToStep(1); // Reset to step 1 on logout
+        }
     }
 
-    // 綁定新按鈕事件
-    document.getElementById("btnSaveOcr").onclick = saveOcrResult;
-    document.getElementById("btnUniSearch").onclick = searchUniversities;
-    elUniQuery.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") searchUniversities();
-    });
-    document.getElementById("btnRunAnalysis").onclick = runTargetAnalysis;
-
     (async function() {
+      sb.auth.onAuthStateChange((event, session) => {
+        handleAuthStateChange(session);
+      });
+
       const { data } = await sb.auth.getSession();
-      if (data?.session?.user?.email) {
-        elAuthStatus.textContent = "已登入：" + data.session.user.email;
+      handleAuthStateChange(data.session);
+      
+      if (data?.session?.user) {
         const gate = await verifyGate();
         if (gate.ok) {
-          quizCard.style.display = "block";
-          await fetchNextQuestion();
+          await fetchNextQuestion({}); // Fetch first question
         } else {
-          quizCard.style.display = "none";
           alert("此帳號不允許使用：" + (gate.error || "Denied"));
           await sb.auth.signOut();
         }
       }
-
-      sb.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user?.email) {
-          elAuthStatus.textContent = "已登入：" + session.user.email;
-          const gate = await verifyGate();
-          if (gate.ok) {
-            quizCard.style.display = "block";
-            await fetchNextQuestion();
-          } else {
-            quizCard.style.display = "none";
-            alert("此帳號不允許使用：" + (gate.error || "Denied"));
-            await sb.auth.signOut();
-          }
-        } else {
-          elAuthStatus.textContent = "未登入";
-          quizCard.style.display = "none";
-        }
-      });
     })();
   </script>
 </body>
 </html>
-

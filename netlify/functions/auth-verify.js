@@ -17,6 +17,11 @@ function json(statusCode, body) {
 }
 
 exports.handler = async (event) => {
+  console.log("--- auth-verify execution ---");
+  console.log("SUPABASE_URL exists:", !!process.env.SUPABASE_URL);
+  console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log("All available env keys:", Object.keys(process.env));
+
   try {
     if (event.httpMethod === "OPTIONS") return json(204, {});
     if (event.httpMethod !== "POST") return json(405, { error: "Method Not Allowed" });
