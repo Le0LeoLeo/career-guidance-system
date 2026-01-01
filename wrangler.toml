@@ -1,0 +1,8 @@
+# wrangler.toml
+name = "career-guidance-system"
+compatibility_date = "2024-05-01"
+
+[[pages.functions.compatibility_flags]]
+# Enable Node.js compatibility
+nodejs_compat = true
+
