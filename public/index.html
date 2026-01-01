@@ -276,19 +276,24 @@
             position: fixed;
             bottom: 10px;
             right: 10px;
-            background: rgba(102, 126, 234, 0.9);
+            background: rgba(102, 126, 234, 0.95);
             color: white;
             padding: 8px 12px;
             border-radius: 6px;
             font-size: 12px;
             font-family: 'Courier New', monospace;
-            z-index: 1000;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
+            pointer-events: auto;
+            display: block !important;
+            visibility: visible !important;
         }
 
         .version-info:hover {
             background: rgba(102, 126, 234, 1);
+            transform: scale(1.05);
+            transition: all 0.2s;
         }
     </style>
 </head>
@@ -431,27 +436,44 @@
 
         // 設置版本號信息
         function setVersionInfo() {
-            // 使用當前時間戳生成版本號（每次頁面加載都會不同，但部署後會固定）
-            const now = new Date();
-            const dateStr = now.toISOString().substring(0, 10).replace(/-/g, '.');
-            // 使用頁面加載時間作為版本標識
-            const buildTimestamp = now.getTime().toString().slice(-8);
-            const version = `v${dateStr}.${buildTimestamp}`;
-            
-            // 嘗試從 API 獲取版本號（如果有的話）
-            fetch('/api/version')
-                .then(response => response.ok ? response.json() : null)
-                .then(data => {
-                    if (data && data.version) {
-                        document.getElementById('versionText').textContent = data.version;
-                    } else {
-                        document.getElementById('versionText').textContent = `版本: ${version}`;
-                    }
-                })
-                .catch(() => {
-                    // 如果 API 不可用，使用本地生成的版本號
-                    document.getElementById('versionText').textContent = `版本: ${version}`;
-                });
+            try {
+                const versionElement = document.getElementById('versionText');
+                if (!versionElement) {
+                    console.error('版本號元素不存在');
+                    return;
+                }
+
+                // 使用當前日期和時間生成版本號
+                // 格式: vYYYY.MM.DD.HHMMSS
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                
+                const version = `v${year}.${month}.${day}.${hours}${minutes}${seconds}`;
+                
+                // 直接設置版本號（不依賴 API）
+                versionElement.textContent = `版本: ${version}`;
+                
+                // 確保元素可見
+                const versionInfo = document.getElementById('versionInfo');
+                if (versionInfo) {
+                    versionInfo.style.display = 'block';
+                    versionInfo.style.visibility = 'visible';
+                }
+                
+                console.log('版本號已設置:', version);
+            } catch (error) {
+                console.error('設置版本號時出錯:', error);
+                // 即使出錯也顯示一個默認版本號
+                const versionElement = document.getElementById('versionText');
+                if (versionElement) {
+                    versionElement.textContent = '版本: v1.0.0';
+                }
+            }
         }
 
         // 檢查認證狀態
