@@ -470,64 +470,14 @@
         }
 
         // Google 登入
-        async function loginWithGoogle() {
-            try {
-                // 先嘗試從 localStorage 獲取已保存的 Supabase URL（如果之前配置過）
-                let supabaseUrl = localStorage.getItem('supabase_url');
-                
-                // 如果沒有，嘗試從 API 獲取
-                if (!supabaseUrl) {
-                    try {
-                        const response = await fetch('/api/auth-config');
-                        
-                        // 檢查響應狀態
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-                        
-                        // 檢查 Content-Type 是否為 JSON
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType || !contentType.includes('application/json')) {
-                            const text = await response.text();
-                            console.warn('API 返回非 JSON，可能需要手動配置:', text.substring(0, 100));
-                            throw new Error('API 端點未正確部署，請手動輸入 Supabase URL');
-                        }
-                        
-                        const config = await response.json();
-                        
-                        if (config.error || !config.supabaseUrl) {
-                            throw new Error(config.error || '無法獲取 Supabase URL');
-                        }
-                        
-                        supabaseUrl = config.supabaseUrl;
-                        // 保存到 localStorage 以便下次使用
-                        localStorage.setItem('supabase_url', supabaseUrl);
-                    } catch (apiError) {
-                        // API 失敗，提示用戶手動輸入
-                        console.warn('無法從 API 獲取配置，嘗試手動輸入:', apiError);
-                        const manualUrl = prompt('無法自動獲取 Supabase URL。\n\n請輸入你的 Supabase 專案 URL：\n（例如：https://xxxxx.supabase.co）', supabaseUrl || '');
-                        
-                        if (!manualUrl || !manualUrl.trim()) {
-                            showError('需要 Supabase URL 才能登入');
-                            return;
-                        }
-                        
-                        supabaseUrl = manualUrl.trim();
-                        // 保存手動輸入的 URL
-                        localStorage.setItem('supabase_url', supabaseUrl);
-                    }
-                }
-                
-                // 構建 OAuth 重定向 URL
-                const redirectTo = window.location.origin;
-                const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
-                
-                // 重定向到 Supabase OAuth
-                window.location.href = authUrl;
-            } catch (error) {
-                showError('登入失敗: ' + error.message);
-                console.error('登入錯誤詳情:', error);
-            }
+        function loginWithGoogle() {
+            // 直接使用硬編碼的 Supabase URL
+            const supabaseUrl = 'https://spsvuybwaciyfwxmvuxh.supabase.co';
+            const redirectTo = window.location.origin;
+            const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+            
+            // 重定向到 Supabase OAuth
+            window.location.href = authUrl;
         }
 
         // 登出
