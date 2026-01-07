@@ -1,7 +1,11 @@
 {
-  "name": "campus-assistant",
+  "name": "career-guidance-system-root",
   "private": true,
   "version": "1.0.0",
   "type": "commonjs",
+  "scripts": {
+    "dev": "npm --prefix CPA_WEB run dev",
+    "build": "npm --prefix CPA_WEB run build"
+  },
   "dependencies": {}
 }
